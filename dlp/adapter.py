@@ -32,8 +32,9 @@ class DLPAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def on_activation(self, manifest: Dict[str, Any], asset_id: str,
-                       reconstructed_secret: bytes) -> ActionResult:
+    def on_activation(
+        self, manifest: Dict[str, Any], asset_id: str, reconstructed_secret: bytes
+    ) -> ActionResult:
         """Called once quorum has reconstructed the secret for one asset.
         This is where you'd actually transfer funds, unlock an account,
         deliver a message, etc."""
@@ -69,10 +70,13 @@ class InMemoryDemoAdapter(DLPAdapter):
             return False
         return default_verify(manifest)
 
-    def on_activation(self, manifest: Dict[str, Any], asset_id: str,
-                       reconstructed_secret: bytes) -> ActionResult:
+    def on_activation(
+        self, manifest: Dict[str, Any], asset_id: str, reconstructed_secret: bytes
+    ) -> ActionResult:
         self.activations.append((manifest["manifest_id"], asset_id, reconstructed_secret))
-        return ActionResult(success=True, detail=f"asset {asset_id} released (demo, in-memory only)")
+        return ActionResult(
+            success=True, detail=f"asset {asset_id} released (demo, in-memory only)"
+        )
 
     def on_revocation(self, manifest_id: str) -> None:
         self.revoked.add(manifest_id)

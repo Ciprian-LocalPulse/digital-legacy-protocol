@@ -11,6 +11,7 @@ def test_split_and_reconstruct_roundtrip():
     assert len(shares) == 5
     # any 3 of 5 should reconstruct
     import itertools
+
     for combo in itertools.combinations(shares, 3):
         assert shamir.reconstruct_secret(list(combo)) == secret
 

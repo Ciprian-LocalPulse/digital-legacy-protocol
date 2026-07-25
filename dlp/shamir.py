@@ -68,6 +68,7 @@ def gf_pow(a: int, power: int) -> int:
 
 # --- Polynomial evaluation ---------------------------------------------------
 
+
 def _eval_poly(coeffs: List[int], x: int) -> int:
     """Evaluate polynomial (coeffs[0] is the secret / constant term) at x."""
     result = 0
@@ -78,12 +79,14 @@ def _eval_poly(coeffs: List[int], x: int) -> int:
 
 # --- Public data structures --------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Share:
     """A single share: an x-coordinate plus one byte of y per secret byte."""
-    index: int          # x-coordinate, 1..255, never 0
+
+    index: int  # x-coordinate, 1..255, never 0
     trustee_id: str
-    data: bytes          # y-values, one per byte of the original secret
+    data: bytes  # y-values, one per byte of the original secret
 
     def to_dict(self) -> dict:
         return {
@@ -121,8 +124,7 @@ def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[
             share_bytes[i].append(_eval_poly(coeffs, x))
 
     return [
-        Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i]))
-        for i in range(n)
+        Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i])) for i in range(n)
     ]
 
 
@@ -159,8 +161,8 @@ def reconstruct_secret(shares: List[Share]) -> bytes:
                 if i == j:
                     continue
                 xj = xs[j]
-                num = gf_mul(num, xj)          # (0 - xj) == xj in GF(256)
-                den = gf_mul(den, xi ^ xj)      # (xi - xj) == xi ^ xj
+                num = gf_mul(num, xj)  # (0 - xj) == xj in GF(256)
+                den = gf_mul(den, xi ^ xj)  # (xi - xj) == xi ^ xj
             term = gf_mul(yi, gf_div(num, den))
             acc ^= term
         out[byte_pos] = acc

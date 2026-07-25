@@ -16,10 +16,13 @@ from dlp.switch import DeadMansSwitch, SwitchState
 def main() -> None:
     print("--- Ada sets up her digital legacy ---\n")
 
+    # only Ada's private key is used below (to sign her own manifest) — the
+    # trustees' private keys stay with them in real life, so we discard the
+    # local copies here to make that explicit
     ada_priv, ada_pub = crypto.generate_keypair()
-    sister_priv, sister_pub = crypto.generate_keypair()
-    lawyer_priv, lawyer_pub = crypto.generate_keypair()
-    friend_priv, friend_pub = crypto.generate_keypair()
+    _sister_priv, sister_pub = crypto.generate_keypair()
+    _lawyer_priv, lawyer_pub = crypto.generate_keypair()
+    _friend_priv, friend_pub = crypto.generate_keypair()
 
     manifest = (
         ManifestBuilder(owner_public_key=ada_pub, owner_display_name="Ada")
@@ -46,7 +49,8 @@ def main() -> None:
     print("--- The actual wallet key is split, never stored in the manifest ---\n")
     wallet_private_key = b"xprv9s21ZrQH143K...this-would-be-a-real-bip32-key"
     shares = shamir.split_secret(
-        wallet_private_key, threshold=2,
+        wallet_private_key,
+        threshold=2,
         trustee_ids=["sister", "lawyer", "friend"],
     )
     print("Elena, the lawyer, and the friend each hold one share.")
@@ -55,7 +59,9 @@ def main() -> None:
     print("--- Two years pass. Ada checks in regularly, nothing happens. ---\n")
     switch = DeadMansSwitch(
         manifest_id=manifest["manifest_id"],
-        interval_days=60, grace_days=14, quorum_threshold=2,
+        interval_days=60,
+        grace_days=14,
+        quorum_threshold=2,
         last_checkin=datetime.now(timezone.utc) - timedelta(days=10),
     )
     print(f"Switch state: {switch.state().value} (as expected)\n")

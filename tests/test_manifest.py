@@ -19,14 +19,17 @@ def _basic_signed_manifest(threshold=2, n_trustees=3):
     builder.set_quorum_threshold(threshold)
     builder.add_beneficiary("ben1", contact_hint="daughter")
     builder.add_asset(
-        asset_type="crypto_wallet", reference="wallet #1", beneficiary_id="ben1",
-        action="release_key", shares_distributed_to=trustee_ids,
+        asset_type="crypto_wallet",
+        reference="wallet #1",
+        beneficiary_id="ben1",
+        action="release_key",
+        shares_distributed_to=trustee_ids,
     )
     return builder.build_and_sign(owner_priv), owner_pub
 
 
 def test_build_and_sign_produces_valid_manifest():
-    manifest, owner_pub = _basic_signed_manifest()
+    manifest, _owner_pub = _basic_signed_manifest()
     validate_manifest(manifest)  # should not raise
     assert is_signature_valid(manifest) is True
 
@@ -122,11 +125,9 @@ def test_build_without_assets_rejected():
 
 
 def test_supersedes_chain():
-    manifest_v1, owner_pub = _basic_signed_manifest()
+    manifest_v1, _owner_pub = _basic_signed_manifest()
     owner_priv2, owner_pub2 = crypto.generate_keypair()
-    builder2 = ManifestBuilder(
-        owner_public_key=owner_pub2, supersedes=manifest_v1["manifest_id"]
-    )
+    builder2 = ManifestBuilder(owner_public_key=owner_pub2, supersedes=manifest_v1["manifest_id"])
     builder2.add_trustee("t0", "ed25519:z")
     builder2.add_trustee("t1", "ed25519:w")
     builder2.set_quorum_threshold(2)

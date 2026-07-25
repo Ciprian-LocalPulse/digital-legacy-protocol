@@ -8,7 +8,9 @@ from dlp.switch import DeadMansSwitch, SwitchState
 def _switch(days_since_checkin=0, interval=90, grace=30, threshold=2):
     now = datetime.now(timezone.utc)
     return DeadMansSwitch(
-        manifest_id="m1", interval_days=interval, grace_days=grace,
+        manifest_id="m1",
+        interval_days=interval,
+        grace_days=grace,
         quorum_threshold=threshold,
         last_checkin=now - timedelta(days=days_since_checkin),
     )

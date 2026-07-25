@@ -58,6 +58,17 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+# UP006/UP035/UP045: pyupgrade rules suggesting `list`/`dict`/`X | None` over
+# `List`/`Dict`/`Optional[X]`. Left as typing.* deliberately so annotations
+# stay unambiguous on Python 3.9 without depending on `from __future__ import
+# annotations` being present in every file that adds a type hint later.
+# BLE001: flags `except Exception`. Used once, in a validation helper whose
+# entire job is "did this raise for ANY reason" — narrowing it would mean
+# maintaining a list of every ManifestValidationError subtype by hand.
+ignore = ["UP006", "UP035", "UP045", "BLE001"]
 
 [tool.mypy]
 python_version = "3.9"

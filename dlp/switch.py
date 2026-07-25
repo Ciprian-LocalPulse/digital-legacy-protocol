@@ -17,11 +17,11 @@ from typing import List, Optional
 
 
 class SwitchState(str, Enum):
-    ACTIVE = "active"                    # owner checking in normally
-    OVERDUE = "overdue"                  # missed check-in, inside grace period
-    VERIFICATION = "verification"        # grace period lapsed, polling trustees
-    ACTIVATED = "activated"              # quorum confirmed, assets should release
-    ABORTED = "aborted"                  # owner checked in during verification
+    ACTIVE = "active"  # owner checking in normally
+    OVERDUE = "overdue"  # missed check-in, inside grace period
+    VERIFICATION = "verification"  # grace period lapsed, polling trustees
+    ACTIVATED = "activated"  # quorum confirmed, assets should release
+    ABORTED = "aborted"  # owner checked in during verification
 
 
 @dataclass
@@ -47,8 +47,9 @@ class DeadMansSwitch:
         self.attestations.clear()
         self._aborted_at = None
 
-    def record_attestation(self, trustee_id: str, confirms_unreachable: bool,
-                            at: Optional[datetime] = None) -> None:
+    def record_attestation(
+        self, trustee_id: str, confirms_unreachable: bool, at: Optional[datetime] = None
+    ) -> None:
         if self.state(at) not in (SwitchState.VERIFICATION, SwitchState.ACTIVATED):
             raise RuntimeError(
                 "attestations are only meaningful once verification has started "
@@ -57,8 +58,11 @@ class DeadMansSwitch:
         # a trustee can update their attestation; only the latest counts
         self.attestations = [a for a in self.attestations if a.trustee_id != trustee_id]
         self.attestations.append(
-            Attestation(trustee_id=trustee_id, confirms_unreachable=confirms_unreachable,
-                        timestamp=at or datetime.now(timezone.utc))
+            Attestation(
+                trustee_id=trustee_id,
+                confirms_unreachable=confirms_unreachable,
+                timestamp=at or datetime.now(timezone.utc),
+            )
         )
         if not confirms_unreachable:
             # any single "I've seen them, they're fine" aborts activation —

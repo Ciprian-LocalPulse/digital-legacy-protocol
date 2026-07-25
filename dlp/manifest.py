@@ -17,8 +17,15 @@ from . import crypto
 DLP_VERSION = "0.1"
 
 REQUIRED_TOP_LEVEL = {
-    "dlp_version", "manifest_id", "owner", "created_at", "updated_at",
-    "checkin", "quorum", "assets", "beneficiaries",
+    "dlp_version",
+    "manifest_id",
+    "owner",
+    "created_at",
+    "updated_at",
+    "checkin",
+    "quorum",
+    "assets",
+    "beneficiaries",
 }
 
 VALID_ASSET_TYPES = {"crypto_wallet", "account_access", "file", "message", "custom"}
@@ -38,8 +45,13 @@ class ManifestBuilder:
     """Fluent builder for a DLP manifest. Call .build() to get the dict,
     or .build_and_sign(private_key) to get a signed one directly."""
 
-    def __init__(self, owner_public_key: str, owner_display_name: Optional[str] = None,
-                 manifest_id: Optional[str] = None, supersedes: Optional[str] = None):
+    def __init__(
+        self,
+        owner_public_key: str,
+        owner_display_name: Optional[str] = None,
+        manifest_id: Optional[str] = None,
+        supersedes: Optional[str] = None,
+    ):
         self._manifest_id = manifest_id or str(uuid.uuid4())
         self._owner = {"public_key": owner_public_key, "display_name": owner_display_name}
         self._supersedes = supersedes
@@ -58,46 +70,63 @@ class ManifestBuilder:
         self._checkin = {"interval_days": interval_days, "grace_days": grace_days, "method": method}
         return self
 
-    def add_trustee(self, trustee_id: Optional[str], public_key: str,
-                     contact_hint: str = "") -> ManifestBuilder:
-        self._trustees.append({
-            "trustee_id": trustee_id or str(uuid.uuid4()),
-            "public_key": public_key,
-            "contact_hint": contact_hint,
-        })
+    def add_trustee(
+        self, trustee_id: Optional[str], public_key: str, contact_hint: str = ""
+    ) -> ManifestBuilder:
+        self._trustees.append(
+            {
+                "trustee_id": trustee_id or str(uuid.uuid4()),
+                "public_key": public_key,
+                "contact_hint": contact_hint,
+            }
+        )
         return self
 
     def set_quorum_threshold(self, threshold: int) -> ManifestBuilder:
         self._threshold = threshold
         return self
 
-    def add_beneficiary(self, beneficiary_id: Optional[str], public_key: Optional[str] = None,
-                         contact_hint: str = "") -> ManifestBuilder:
-        self._beneficiaries.append({
-            "beneficiary_id": beneficiary_id or str(uuid.uuid4()),
-            "public_key": public_key,
-            "contact_hint": contact_hint,
-        })
+    def add_beneficiary(
+        self,
+        beneficiary_id: Optional[str],
+        public_key: Optional[str] = None,
+        contact_hint: str = "",
+    ) -> ManifestBuilder:
+        self._beneficiaries.append(
+            {
+                "beneficiary_id": beneficiary_id or str(uuid.uuid4()),
+                "public_key": public_key,
+                "contact_hint": contact_hint,
+            }
+        )
         return self
 
-    def add_asset(self, asset_type: str, reference: str, beneficiary_id: str,
-                   action: str, shares_distributed_to: List[str],
-                   asset_id: Optional[str] = None,
-                   extra_conditions: Optional[List[str]] = None) -> ManifestBuilder:
+    def add_asset(
+        self,
+        asset_type: str,
+        reference: str,
+        beneficiary_id: str,
+        action: str,
+        shares_distributed_to: List[str],
+        asset_id: Optional[str] = None,
+        extra_conditions: Optional[List[str]] = None,
+    ) -> ManifestBuilder:
         if asset_type not in VALID_ASSET_TYPES:
             raise ManifestValidationError(f"invalid asset type: {asset_type}")
         if action not in VALID_ACTIONS:
             raise ManifestValidationError(f"invalid action: {action}")
-        self._assets.append({
-            "asset_id": asset_id or str(uuid.uuid4()),
-            "type": asset_type,
-            "reference": reference,
-            "share_scheme": "shamir",
-            "shares_distributed_to": shares_distributed_to,
-            "beneficiary_id": beneficiary_id,
-            "conditions": ["quorum_reached"] + (extra_conditions or []),
-            "action": action,
-        })
+        self._assets.append(
+            {
+                "asset_id": asset_id or str(uuid.uuid4()),
+                "type": asset_type,
+                "reference": reference,
+                "share_scheme": "shamir",
+                "shares_distributed_to": shares_distributed_to,
+                "beneficiary_id": beneficiary_id,
+                "conditions": ["quorum_reached"] + (extra_conditions or []),
+                "action": action,
+            }
+        )
         return self
 
     def build(self) -> Dict[str, Any]:

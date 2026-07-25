@@ -43,7 +43,7 @@ def generate_keypair() -> tuple[str, str]:
 def _strip_prefix(key_str: str) -> bytes:
     if not key_str.startswith("ed25519:"):
         raise ValueError("expected key string prefixed with 'ed25519:'")
-    return base64.b64decode(key_str[len("ed25519:"):])
+    return base64.b64decode(key_str[len("ed25519:") :])
 
 
 def canonicalize(manifest: Dict[str, Any]) -> bytes:

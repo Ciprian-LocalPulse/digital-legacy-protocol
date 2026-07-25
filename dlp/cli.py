@@ -53,8 +53,10 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     print(f"  Owner: {manifest['owner'].get('display_name') or '(unnamed)'}")
     q = manifest["quorum"]
     print(f"  Quorum: {q['threshold']} of {len(q['trustees'])} trustees")
-    print(f"  Check-in: every {manifest['checkin']['interval_days']} days, "
-          f"{manifest['checkin']['grace_days']} day grace period")
+    print(
+        f"  Check-in: every {manifest['checkin']['interval_days']} days, "
+        f"{manifest['checkin']['grace_days']} day grace period"
+    )
     print(f"  Assets ({len(manifest['assets'])}):")
     for asset in manifest["assets"]:
         print(f"    - [{asset['type']}] {asset['reference']} -> action: {asset['action']}")
@@ -97,7 +99,9 @@ def cmd_demo(_args: argparse.Namespace) -> None:
     print("\n=== 4. Simulating time passing without a check-in ===")
     dms = DeadMansSwitch(
         manifest_id=signed_manifest["manifest_id"],
-        interval_days=90, grace_days=30, quorum_threshold=2,
+        interval_days=90,
+        grace_days=30,
+        quorum_threshold=2,
         last_checkin=datetime.now(timezone.utc) - timedelta(days=200),
     )
     print(f"  switch state: {dms.state().value}")
