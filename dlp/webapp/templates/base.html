@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Digital Legacy Protocol{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #0b0e0c; --panel: #12160f; --text: #e6f3e6; --muted: #8fae8f;
+      --accent: #00ff41; --danger: #ff5c5c; --border: #223322;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0; line-height: 1.5;
+    }
+    header {
+      border-bottom: 1px solid var(--border); padding: 1rem 2rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    nav a { color: var(--muted); text-decoration: none; margin-left: 1.5rem; font-size: 0.9rem; }
+    nav a:hover { color: var(--accent); }
+    main { max-width: 760px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 1.5rem; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;
+    }
+    label { display: block; margin: 1rem 0 0.25rem; font-size: 0.9rem; color: var(--muted); }
+    input, select, textarea {
+      width: 100%; padding: 0.5rem; background: #0d100c; color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px; font-family: inherit;
+    }
+    button {
+      margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: var(--accent);
+      color: #05130a; border: none; border-radius: 4px; font-weight: 700; cursor: pointer;
+    }
+    button:hover { opacity: 0.85; }
+    .warning {
+      background: #2a1a0a; border: 1px solid #7a4a00; color: #ffcf8f;
+      padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem;
+    }
+    .error { background: #2a0a0a; border: 1px solid #7a0000; color: #ff9f9f;
+      padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+    .ok { color: var(--accent); }
+    .bad { color: var(--danger); }
+    code, pre {
+      background: #0d100c; border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.2rem 0.4rem; font-size: 0.85rem; word-break: break-all;
+    }
+    pre { padding: 1rem; overflow-x: auto; white-space: pre-wrap; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { text-align: left; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .trustee-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .trustee-row input { flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="{{ url_for('index') }}">Digital Legacy Protocol</a>
+    <nav>
+      <a href="{{ url_for('index') }}">Manifests</a>
+      <a href="{{ url_for('create_form') }}">Create</a>
+      <a href="{{ url_for('verify') }}">Verify</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

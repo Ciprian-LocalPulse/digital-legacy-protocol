@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Manifest {{ manifest.manifest_id[:8] }} — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Manifest</h1>
+
+<div class="panel">
+  <table>
+    <tr><td>Manifest ID</td><td><code>{{ manifest.manifest_id }}</code></td></tr>
+    <tr><td>DLP version</td><td>{{ manifest.dlp_version }}</td></tr>
+    <tr><td>Owner</td><td>{{ manifest.owner.display_name or "(unnamed)" }}</td></tr>
+    <tr><td>Signature</td>
+        <td class="{{ 'ok' if signature_valid else 'bad' }}">
+          {{ "valid ✓" if signature_valid else "INVALID — do not trust this manifest" }}
+        </td></tr>
+    <tr><td>Check-in</td>
+        <td>every {{ manifest.checkin.interval_days }} days,
+            {{ manifest.checkin.grace_days }} day grace period
+            ({{ manifest.checkin.method }})</td></tr>
+    <tr><td>Quorum</td>
+        <td>{{ manifest.quorum.threshold }} of {{ manifest.quorum.trustees|length }} trustees</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h3>Trustees</h3>
+  <table>
+    <tr><th>ID</th><th>Contact hint</th></tr>
+    {% for t in manifest.quorum.trustees %}
+    <tr>
+      <td><code>{{ t.trustee_id[:8] }}…</code></td>
+      <td>
+        {% if t.contact_hint_encrypted %}
+          <span class="muted">🔒 encrypted (only the trustee's own key can read it)</span>
+        {% else %}
+          {{ t.contact_hint or "(none)" }}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="panel">
+  <h3>Assets</h3>
+  <table>
+    <tr><th>Type</th><th>Reference</th><th>Action</th></tr>
+    {% for a in manifest.assets %}
+    <tr><td>{{ a.type }}</td><td>{{ a.reference }}</td><td>{{ a.action }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="panel">
+  <h3>Raw manifest</h3>
+  <pre>{{ manifest_json }}</pre>
+</div>
+{% endblock %}

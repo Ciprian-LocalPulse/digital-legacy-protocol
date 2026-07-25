@@ -9,6 +9,7 @@ Command-line interface for DLP.
     dlp store-save <manifest.json> [--dir PATH]
     dlp store-list [--dir PATH]
     dlp store-load <manifest_id> [--dir PATH]
+    dlp web [--dir PATH] [--host HOST] [--port PORT]   # requires the 'web' extra
 """
 
 from __future__ import annotations
@@ -176,6 +177,21 @@ def cmd_store_load(args: argparse.Namespace) -> None:
     print(json.dumps(manifest, indent=2))
 
 
+def cmd_web(args: argparse.Namespace) -> None:
+    try:
+        from .webapp import create_app
+    except ImportError:
+        print(
+            "The web UI needs Flask, which is an optional dependency.\n"
+            "Install it with: pip install -e '.[web]'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    app = create_app(store_dir=args.dir)
+    print(f"Serving DLP web UI at http://{args.host}:{args.port}  (manifests in {args.dir}/)")
+    app.run(host=args.host, port=args.port, debug=args.debug)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dlp", description="Digital Legacy Protocol CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -207,6 +223,13 @@ def main() -> None:
     p_store_load.add_argument("manifest_id")
     p_store_load.add_argument("--dir", default=_DEFAULT_STORE_DIR)
     p_store_load.set_defaults(func=cmd_store_load)
+
+    p_web = sub.add_parser("web", help="launch the local web UI (requires the 'web' extra)")
+    p_web.add_argument("--dir", default=_DEFAULT_STORE_DIR, help="manifest storage directory")
+    p_web.add_argument("--host", default="127.0.0.1")
+    p_web.add_argument("--port", type=int, default=5000)
+    p_web.add_argument("--debug", action="store_true")
+    p_web.set_defaults(func=cmd_web)
 
     args = parser.parse_args()
     args.func(args)

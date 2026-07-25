@@ -111,6 +111,24 @@ backup = recovery.backup_owner_key(owner_priv_raw_bytes, threshold=3,
                                     trustee_ids=["t1", "t2", "t3", "t4"])
 ```
 
+Sending real notifications to trustees, and launching the local web UI:
+
+```python
+from dlp.notify import SMTPEmailChannel, NotificationService
+
+channel = SMTPEmailChannel(host="smtp.gmail.com", port=587,
+                            username="you@gmail.com", password="app-password",
+                            from_address="you@gmail.com")
+NotificationService(channel).send_attestation_request(
+    "sister@example.com", "Ada's sister", owner_display_name="Ada"
+)
+```
+
+```bash
+pip install -e ".[web]"
+dlp web   # serves a local UI at http://127.0.0.1:5000 — create/inspect/verify without touching Python
+```
+
 ## What's in this repository
 
 ```
@@ -123,10 +141,12 @@ digital-legacy-protocol/
 │   ├── hint_crypto.py     X25519 + AES-256-GCM encryption for contact hints
 │   ├── recovery.py        opt-in Shamir backup of the owner's own signing key
 │   ├── storage.py         ManifestStore interface + a working local file backend
+│   ├── notify.py          real SMTP email delivery + the actual message content for each event
 │   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum)
 │   ├── adapter.py         the interface platforms implement to become DLP-aware
-│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-save / store-list / store-load`
-├── tests/                 91 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
+│   ├── webapp/             minimal Flask UI — create/inspect/verify manifests without a terminal (optional extra)
+│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-save / store-list / store-load / web`
+├── tests/                 118 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
 └── examples/              sample manifests and a worked-through inheritance scenario
 ```
 
@@ -145,15 +165,15 @@ digital-legacy-protocol/
 
 ## Current status — read this before trusting it with anything real
 
-This is v0.2: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
+This is v0.3: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, and opt-in owner key recovery. 91 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, opt-in owner key recovery, real SMTP email delivery, and a working local web UI. 118 tests, 94% coverage, CI on every push.
 
-**Exists as an interface but has no real-world implementation yet:** `DLPAdapter` — no bank, exchange, or password manager actually honors DLP manifests today. `checkin.method` values like `email_confirm` or `app_heartbeat` describe intent in the spec; nothing in this repo sends or receives those messages yet.
+**Exists as an interface but has no real-world implementation yet:** `DLPAdapter` — no bank, exchange, or password manager actually honors DLP manifests today. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
 
-**Doesn't exist at all yet:** a web or mobile UI (this is a Python library and CLI — you need to be comfortable with a terminal to use it today), an independent security audit (everything here has been tested by its own author, which is a different bar than "reviewed by someone with no stake in it being correct"), and any legal opinion on whether trustee-quorum attestation has standing anywhere as evidence of death or incapacity. That last one specifically isn't something code can settle — it needs an actual lawyer, in an actual jurisdiction.
+**Doesn't exist at all yet:** a *hosted, multi-tenant* web UI — the reference UI generates private keys server-side, which is fine for local single-user use and explicitly not fine for a shared deployment (see spec section 14); an independent security audit (everything here has been tested by its own author, which is a different bar than "reviewed by someone with no stake in it being correct"); and any legal opinion on whether trustee-quorum attestation has standing anywhere as evidence of death or incapacity. That last one specifically isn't something code can settle — it needs an actual lawyer, in an actual jurisdiction.
 
-If you're evaluating this for something real: the protocol and cryptography are a defensible foundation to build on. The parts that make it usable by a non-technical family, and legally meaningful, are not here yet.
+If you're evaluating this for something real: the protocol, cryptography, and now the delivery/UI layers are a defensible foundation to build on. What's still missing is real third-party adoption and legal grounding — neither of which more code can produce on its own.
 
 ## Contributing
 

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Manifests — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Stored manifests</h1>
+<p class="muted">Reading from <code>{{ store_dir }}</code></p>
+
+{% if not manifests %}
+  <div class="panel">
+    <p class="muted">No manifests stored yet.</p>
+    <a href="{{ url_for('create_form') }}">Create your first manifest &rarr;</a>
+  </div>
+{% else %}
+  <div class="panel">
+    <table>
+      <tr><th>Owner</th><th>Quorum</th><th>Assets</th><th></th></tr>
+      {% for m in manifests %}
+      <tr>
+        <td>{{ m.owner }}</td>
+        <td>{{ m.threshold }} of {{ m.trustees }}</td>
+        <td>{{ m.assets }}</td>
+        <td><a href="{{ url_for('view_manifest', manifest_id=m.id) }}">view &rarr;</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

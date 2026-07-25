@@ -1,4 +1,4 @@
-# Digital Legacy Protocol (DLP) — Specification v0.2
+# Digital Legacy Protocol (DLP) — Specification v0.3
 
 **Status:** Draft / Request for Comments
 **Author:** Stefano (Ciprian-LocalPulse) & contributors
@@ -154,5 +154,19 @@ The reference implementation (`dlp.recovery`) offers an opt-in mitigation: the o
 - Should manifests support partial activation (some assets release before others)?
 - How should minors or dependents with no public key be represented as beneficiaries?
 - What's the right default for `grace_days` across cultures and use cases?
+
+## 13. Notification delivery
+
+The check-in and trustee-attestation flow described in section 7 is only useful if the messages it implies — "please check in," "please attest," "an asset has been released to you" — actually reach a real person. Earlier drafts of this spec modeled the *logic* of check-ins and attestations (`dlp.switch`) without addressing *delivery* at all.
+
+The reference implementation (`dlp.notify`) closes that gap with a small `NotificationChannel` interface and one working implementation, `SMTPEmailChannel`, which sends real email over standard SMTP with TLS and username/password auth — compatible with Gmail app passwords, Amazon SES, Postmark, or any self-hosted mail server. A `ConsoleChannel` implementation exists for local development and testing, where standing up real mail infrastructure would be unnecessary overhead.
+
+This is intentionally one channel, not a notification platform. A real deployment will likely want SMS, push notifications, or postal mail as a fallback for trustees who don't check email reliably — implement `NotificationChannel` for any of those the same way you'd implement `DLPAdapter` or `ManifestStore`.
+
+## 14. Reference web UI
+
+The reference implementation ships a minimal, server-rendered web interface (`dlp.webapp`, an optional extra) so that using DLP does not strictly require comfort with a command line or the Python API. It covers manifest creation, inspection, and signature verification through plain HTML forms.
+
+This UI generates and displays private keys server-side, in the same process serving the page. That is an acceptable tradeoff for a local tool running on hardware the user controls, and an **unacceptable** one for a hosted, multi-tenant service — a server operator in that scenario would see every private key it generates on a user's behalf, which defeats a fair amount of the point of DLP existing at all. Anyone deploying this UI for multiple people over a network should move key generation and signing into the browser (e.g. via WebCrypto) or a separate trusted device, rather than assuming this reference implementation's approach scales to that setting unchanged.
 
 Contributions and critique welcome — see `CONTRIBUTING.md`.

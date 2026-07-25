@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-07-25
+
+Closes two more gaps from the "current status" section of the README: no way to actually notify a real person, and no way to use DLP without a terminal.
+
+### Added
+- `dlp.notify` — real notification delivery: `SMTPEmailChannel` sends actual email over SMTP+TLS (works with Gmail app passwords, SES, Postmark, self-hosted servers — anything standard), `ConsoleChannel` for local development and tests. `NotificationService` wraps either with the actual message content for check-in reminders, trustee attestation requests, and beneficiary activation notices.
+- `dlp.webapp` — a minimal local web UI (Flask, server-rendered, no JS build step): create a manifest through a form instead of writing Python, view stored manifests, verify a pasted manifest's signature. Installed via the optional `web` extra (`pip install -e ".[web]"`) so the core library stays dependency-light. Launch with `dlp web`.
+- 27 new tests (118 total, up from 91): SMTP sending is tested by mocking `smtplib.SMTP` rather than requiring real mail infrastructure; the web UI is tested end-to-end through Flask's test client, including a path-traversal rejection test and an assertion that trustee hints created through the form are actually encrypted, not just accepted as plaintext.
+
+### Explicitly out of scope for this UI (see the warning banner on its create-manifest page)
+`dlp.webapp` generates and displays private keys server-side, in-process. That's an acceptable tradeoff for a local, single-user tool running on your own machine — it is not acceptable for a hosted, multi-tenant service. Deploying this UI for multiple people over a network without moving key generation to the browser (WebCrypto) or a separate device would mean a server operator could see every private key it generates. This reference implementation does not attempt that harder problem; the banner says so explicitly rather than leaving it as a silent gap.
+
+### Still open (tracked for 0.4+)
+- No reference platform adapters for real third-party services.
+- No independent security audit.
+- No legal review of trustee-quorum attestation's standing as evidence of death or incapacity.
+- The web UI is single-user/local-only by design — a real multi-tenant deployment needs client-side key generation, which is a separate, harder project.
+- `LocalFileStore` remains single-machine and not concurrency-safe.
+
 ## [0.2.0] — 2026-07-25
 
 Closes three of the gaps called out as "known limitations" in 0.1.0: plaintext contact hints, no storage layer, and no owner key recovery story.

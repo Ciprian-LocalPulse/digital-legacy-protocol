@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "digital-legacy-protocol"
-version = "0.2.0"
+version = "0.3.0"
 description = "An open protocol and reference implementation for verifiable digital inheritance — no single company decides whether you're gone."
 readme = "README.md"
 license = { text = "MIT" }
@@ -37,6 +37,9 @@ dev = [
     "black>=24.1",
     "ruff>=0.2",
     "mypy>=1.8",
+]
+web = [
+    "flask>=3.0",
 ]
 
 [project.scripts]

@@ -27,7 +27,7 @@ Quick start:
     signed = builder.build_and_sign(owner_priv)
 """
 
-from . import adapter, crypto, hint_crypto, recovery, shamir, storage, switch
+from . import adapter, crypto, hint_crypto, notify, recovery, shamir, storage, switch
 from .manifest import (
     ManifestBuilder,
     ManifestValidationError,
@@ -42,6 +42,7 @@ __all__ = [
     "crypto",
     "hint_crypto",
     "is_signature_valid",
+    "notify",
     "recovery",
     "shamir",
     "storage",
@@ -49,4 +50,4 @@ __all__ = [
     "validate_manifest",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

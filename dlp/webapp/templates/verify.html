@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Verify manifest — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Verify a manifest</h1>
+<p class="muted">Paste a manifest JSON (e.g. one someone sent you) to check its structure and signature — nothing here is stored.</p>
+
+<form method="post" class="panel">
+  <label>Manifest JSON</label>
+  <textarea name="manifest_json" rows="12" required placeholder="{ &quot;dlp_version&quot;: &quot;0.1&quot;, ... }">{{ request.form.get('manifest_json', '') }}</textarea>
+  <button type="submit">Verify</button>
+</form>
+
+{% if result %}
+<div class="panel">
+  {% if result.error %}
+    <p class="bad">{{ result.error }}</p>
+  {% else %}
+    <p>Structurally valid: <span class="ok">yes</span></p>
+    <p>Signature: <span class="{{ 'ok' if result.signature_valid else 'bad' }}">
+      {{ "valid ✓" if result.signature_valid else "INVALID — do not trust this manifest" }}
+    </span></p>
+    <p class="muted">manifest_id: <code>{{ result.manifest_id }}</code></p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

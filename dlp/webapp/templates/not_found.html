@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Not found — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Manifest not found</h1>
+<p class="muted">No manifest with id <code>{{ manifest_id }}</code> in this store.</p>
+<a href="{{ url_for('index') }}">&larr; back to manifests</a>
+{% endblock %}

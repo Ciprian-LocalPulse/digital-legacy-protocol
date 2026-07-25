@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Manifest created — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Manifest created</h1>
+
+<div class="warning">
+  <strong>These private keys are shown here once and are not stored anywhere
+  by this application.</strong> Copy them now and distribute each one only
+  to the person it belongs to, through a channel you trust (in person, an
+  encrypted message, a password manager's secure share — not this page,
+  not email, not chat).
+</div>
+
+<div class="panel">
+  <h3>Owner (you)</h3>
+  <p class="muted">Signing private key — keep this, you need it to update or revoke this manifest later.</p>
+  <pre>{{ owner_private_key }}</pre>
+</div>
+
+{% for t in trustees %}
+<div class="panel">
+  <h3>Trustee: {{ t.name }}</h3>
+  <p class="muted">Signing private key — this trustee doesn't need it unless they're recovering your key (spec section 11).</p>
+  <pre>{{ t.signing_private_key }}</pre>
+  <p class="muted">Encryption private key — give this to {{ t.name }} so only they can decrypt their contact hint.</p>
+  <pre>{{ t.encryption_private_key }}</pre>
+</div>
+{% endfor %}
+
+<div class="panel">
+  <h3>Manifest</h3>
+  <p><a href="{{ url_for('view_manifest', manifest_id=manifest.manifest_id) }}">View stored manifest &rarr;</a></p>
+  <p class="muted">manifest_id: <code>{{ manifest.manifest_id }}</code></p>
+</div>
+{% endblock %}

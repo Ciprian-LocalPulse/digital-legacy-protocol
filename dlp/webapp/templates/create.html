@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Create manifest — Digital Legacy Protocol{% endblock %}
+{% block content %}
+<h1>Create a manifest</h1>
+
+<div class="warning">
+  This page generates real Ed25519 and X25519 keys on this server and signs
+  a real manifest. It's meant for local, single-user use — trying this out
+  on your own machine. It is <strong>not</strong> meant to be exposed on the
+  internet for multiple people to use: private keys are generated and shown
+  in your browser response, which is only safe because nothing else can see
+  that response. See the README for the tradeoffs before deploying this
+  anywhere multi-tenant.
+</div>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form method="post" class="panel">
+  <label>Owner display name</label>
+  <input type="text" name="owner_name" required placeholder="e.g. Ada">
+
+  <label>Trustees (one name per line — each gets their own keypair)</label>
+  <textarea id="trustee_textarea" rows="4" placeholder="Elena (sister)&#10;Estate lawyer&#10;College roommate"></textarea>
+
+  <label>Quorum threshold</label>
+  <input type="number" name="threshold" min="2" value="2" required>
+
+  <label>Beneficiary name</label>
+  <input type="text" name="beneficiary_name" required placeholder="e.g. Marcus">
+
+  <label>Asset type</label>
+  <select name="asset_type">
+    <option value="crypto_wallet">crypto_wallet</option>
+    <option value="account_access">account_access</option>
+    <option value="file">file</option>
+    <option value="message">message</option>
+    <option value="custom">custom</option>
+  </select>
+
+  <label>Action on activation</label>
+  <select name="asset_action">
+    <option value="release_key">release_key</option>
+    <option value="grant_access">grant_access</option>
+    <option value="deliver_message">deliver_message</option>
+    <option value="execute_webhook">execute_webhook</option>
+  </select>
+
+  <label>Asset reference (a label, never a secret itself)</label>
+  <input type="text" name="asset_reference" required placeholder="e.g. cold storage wallet #1">
+
+  <button type="submit">Build and sign manifest</button>
+</form>
+
+<script>
+  // Textarea -> multiple hidden trustee_name fields, one per non-empty line,
+  // so the form posts request.form.getlist("trustee_name") correctly. The
+  // textarea itself is never submitted (it has no name attribute).
+  const form = document.querySelector("form");
+  form.addEventListener("submit", (e) => {
+    const textarea = document.getElementById("trustee_textarea");
+    const lines = textarea.value.split("\n").map(s => s.trim()).filter(Boolean);
+    for (const line of lines) {
+      const hidden = document.createElement("input");
+      hidden.type = "hidden";
+      hidden.name = "trustee_name";
+      hidden.value = line;
+      form.appendChild(hidden);
+    }
+  });
+</script>
+{% endblock %}
