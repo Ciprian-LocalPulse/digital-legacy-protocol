@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/digital-legacy-protocol.png" alt="Digital Legacy Protocol" width="100%" />
+</div>
+
 # Digital Legacy Protocol (DLP)
 
 [![CI](https://github.com/Ciprian-LocalPulse/digital-legacy-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Ciprian-LocalPulse/digital-legacy-protocol/actions/workflows/ci.yml)
@@ -114,6 +118,12 @@ digital-legacy-protocol/
 ## Contributing
 
 Bug reports, spec critique, and platform adapter implementations are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). If you build a `DLPAdapter` for a real service (a password manager, an exchange, anything), open a PR linking it; this repo will keep a registry of known implementations.
+
+<img src="assets/section-divider.svg" alt="" width="100%" />
+
+<div align="center">
+  <img src="assets/donations-matrix-banner.svg" alt="Digital Legacy Protocol" width="100%" />
+</div>
 
 ## Support this project
 
