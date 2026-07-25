@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from . import crypto
+from . import crypto, hint_crypto
 
 DLP_VERSION = "0.1"
 
@@ -71,13 +71,27 @@ class ManifestBuilder:
         return self
 
     def add_trustee(
-        self, trustee_id: Optional[str], public_key: str, contact_hint: str = ""
+        self,
+        trustee_id: Optional[str],
+        public_key: str,
+        contact_hint: str = "",
+        encryption_public_key: Optional[str] = None,
     ) -> ManifestBuilder:
+        """`public_key` is the trustee's Ed25519 signing key. If
+        `encryption_public_key` (an X25519 key from
+        dlp.hint_crypto.generate_encryption_keypair) is supplied,
+        contact_hint is encrypted for that trustee before storage — only
+        someone holding the matching private key can read it back. Without
+        it, the hint is stored in plaintext, matching the old behavior."""
+        stored_hint = contact_hint
+        if encryption_public_key and contact_hint:
+            stored_hint = hint_crypto.encrypt_hint(contact_hint, encryption_public_key)
         self._trustees.append(
             {
                 "trustee_id": trustee_id or str(uuid.uuid4()),
                 "public_key": public_key,
-                "contact_hint": contact_hint,
+                "contact_hint": stored_hint,
+                "contact_hint_encrypted": bool(encryption_public_key and contact_hint),
             }
         )
         return self
@@ -91,12 +105,17 @@ class ManifestBuilder:
         beneficiary_id: Optional[str],
         public_key: Optional[str] = None,
         contact_hint: str = "",
+        encryption_public_key: Optional[str] = None,
     ) -> ManifestBuilder:
+        stored_hint = contact_hint
+        if encryption_public_key and contact_hint:
+            stored_hint = hint_crypto.encrypt_hint(contact_hint, encryption_public_key)
         self._beneficiaries.append(
             {
                 "beneficiary_id": beneficiary_id or str(uuid.uuid4()),
                 "public_key": public_key,
-                "contact_hint": contact_hint,
+                "contact_hint": stored_hint,
+                "contact_hint_encrypted": bool(encryption_public_key and contact_hint),
             }
         )
         return self

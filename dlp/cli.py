@@ -1,10 +1,14 @@
 """
 Command-line interface for DLP.
 
-    dlp keygen
-    dlp demo                     # runs a full end-to-end scenario
+    dlp keygen                    # Ed25519 signing keypair
+    dlp enckeygen                 # X25519 keypair for encrypting contact hints
+    dlp demo                      # runs a full end-to-end scenario
     dlp verify <manifest.json>
     dlp inspect <manifest.json>
+    dlp store-save <manifest.json> [--dir PATH]
+    dlp store-list [--dir PATH]
+    dlp store-load <manifest_id> [--dir PATH]
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 
-from . import crypto, shamir
+from . import crypto, hint_crypto, shamir
 from .adapter import InMemoryDemoAdapter
 from .manifest import (
     ManifestBuilder,
@@ -22,13 +26,26 @@ from .manifest import (
     is_signature_valid,
     validate_manifest,
 )
+from .storage import LocalFileStore, ManifestNotFoundError
 from .switch import DeadMansSwitch, SwitchState
+
+_DEFAULT_STORE_DIR = ".dlp_store"
 
 
 def cmd_keygen(_args: argparse.Namespace) -> None:
     priv, pub = crypto.generate_keypair()
     print(json.dumps({"private_key": priv, "public_key": pub}, indent=2))
     print("\nKeep the private key secret. Never put it in a manifest file.", file=sys.stderr)
+
+
+def cmd_enckeygen(_args: argparse.Namespace) -> None:
+    priv, pub = hint_crypto.generate_encryption_keypair()
+    print(json.dumps({"private_key": priv, "public_key": pub}, indent=2))
+    print(
+        "\nThis is a SEPARATE keypair from `dlp keygen` — use it only for "
+        "encrypting/decrypting contact_hint fields, never for signing.",
+        file=sys.stderr,
+    )
 
 
 def cmd_verify(args: argparse.Namespace) -> None:
@@ -125,11 +142,48 @@ def cmd_demo(_args: argparse.Namespace) -> None:
     print("\nDone. This whole flow never required a single company to decide anyone was dead.")
 
 
+def cmd_store_save(args: argparse.Namespace) -> None:
+    with open(args.manifest_path) as f:
+        manifest = json.load(f)
+    store = LocalFileStore(args.dir)
+    try:
+        store.save(manifest)
+    except ManifestValidationError as e:
+        print(f"Refusing to store invalid manifest: {e}")
+        sys.exit(1)
+    print(f"Saved manifest {manifest['manifest_id']} to {args.dir}/")
+
+
+def cmd_store_list(args: argparse.Namespace) -> None:
+    store = LocalFileStore(args.dir)
+    ids = store.list_ids()
+    if not ids:
+        print(f"(no manifests stored in {args.dir}/)")
+        return
+    for manifest_id in ids:
+        manifest = store.load(manifest_id)
+        owner = manifest["owner"].get("display_name") or "(unnamed)"
+        print(f"  {manifest_id}  —  owner: {owner}")
+
+
+def cmd_store_load(args: argparse.Namespace) -> None:
+    store = LocalFileStore(args.dir)
+    try:
+        manifest = store.load(args.manifest_id)
+    except ManifestNotFoundError:
+        print(f"No manifest found with id {args.manifest_id!r} in {args.dir}/")
+        sys.exit(1)
+    print(json.dumps(manifest, indent=2))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dlp", description="Digital Legacy Protocol CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("keygen", help="generate an Ed25519 keypair").set_defaults(func=cmd_keygen)
+    sub.add_parser("enckeygen", help="generate an X25519 keypair for hint encryption").set_defaults(
+        func=cmd_enckeygen
+    )
     sub.add_parser("demo", help="run a full end-to-end demo scenario").set_defaults(func=cmd_demo)
 
     p_verify = sub.add_parser("verify", help="validate a manifest file's structure and signature")
@@ -139,6 +193,20 @@ def main() -> None:
     p_inspect = sub.add_parser("inspect", help="print a human-readable summary of a manifest")
     p_inspect.add_argument("manifest_path")
     p_inspect.set_defaults(func=cmd_inspect)
+
+    p_store_save = sub.add_parser("store-save", help="persist a manifest file to local storage")
+    p_store_save.add_argument("manifest_path")
+    p_store_save.add_argument("--dir", default=_DEFAULT_STORE_DIR)
+    p_store_save.set_defaults(func=cmd_store_save)
+
+    p_store_list = sub.add_parser("store-list", help="list manifest_ids in local storage")
+    p_store_list.add_argument("--dir", default=_DEFAULT_STORE_DIR)
+    p_store_list.set_defaults(func=cmd_store_list)
+
+    p_store_load = sub.add_parser("store-load", help="print a stored manifest by id")
+    p_store_load.add_argument("manifest_id")
+    p_store_load.add_argument("--dir", default=_DEFAULT_STORE_DIR)
+    p_store_load.set_defaults(func=cmd_store_load)
 
     args = parser.parse_args()
     args.func(args)

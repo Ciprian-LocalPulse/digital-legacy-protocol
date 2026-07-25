@@ -1,4 +1,4 @@
-# Digital Legacy Protocol (DLP) — Specification v0.1
+# Digital Legacy Protocol (DLP) — Specification v0.2
 
 **Status:** Draft / Request for Comments
 **Author:** Stefano (Ciprian-LocalPulse) & contributors
@@ -58,7 +58,12 @@ A manifest is a JSON document, canonicalized (RFC 8785 JCS) before signing.
   "quorum": {
     "threshold": 3,
     "trustees": [
-      { "trustee_id": "uuid", "public_key": "ed25519:...", "contact_hint": "encrypted" }
+      {
+        "trustee_id": "uuid",
+        "public_key": "ed25519:...",
+        "contact_hint": "encrypted or plaintext, see 4.1",
+        "contact_hint_encrypted": true
+      }
     ]
   },
   "assets": [
@@ -74,11 +79,17 @@ A manifest is a JSON document, canonicalized (RFC 8785 JCS) before signing.
     }
   ],
   "beneficiaries": [
-    { "beneficiary_id": "uuid", "public_key": "ed25519:... or null", "contact_hint": "encrypted" }
+    { "beneficiary_id": "uuid", "public_key": "ed25519:... or null", "contact_hint": "encrypted or plaintext", "contact_hint_encrypted": false }
   ],
   "signature": "ed25519 signature over canonicalized manifest minus this field"
 }
 ```
+
+### 4.1 Contact hint encryption
+
+A manifest may be read by parties other than its intended trustees before activation — stored on a platform, backed up somewhere, or simply seen by whoever has file access. `contact_hint` is optional plaintext in its simplest form, but any deployment handling real personal information should encrypt it.
+
+The reference implementation (`dlp.hint_crypto`) provides this via a minimal ECIES construction: X25519 key agreement, HKDF-SHA256 key derivation, AES-256-GCM authenticated encryption. Every trustee and beneficiary gets a dedicated X25519 encryption keypair, separate from their Ed25519 signing keypair — the two curves serve different purposes and mixing them is a common source of subtle mistakes, so this implementation keeps them apart rather than trying to reuse one key for both. When `contact_hint_encrypted` is `true`, only the holder of the matching X25519 private key can recover the plaintext; the manifest's signer, the storage layer, and anyone else who sees the manifest cannot.
 
 ## 5. Lifecycle
 
@@ -123,7 +134,22 @@ This is intentionally minimal so it can sit on top of a bank's internal systems,
 - DLP does not replace a legal will. It is a technical layer that can be *referenced* by a will, not a substitute for one.
 - DLP is not a company and has no token, no fee, no central server requirement.
 
-## 10. Open questions for the community
+## 10. Storage
+
+Manifests need to live somewhere durable, but the spec deliberately does not mandate a single storage backend — a manifest's integrity comes from its signature, not from where it's kept. The reference implementation defines a small `ManifestStore` interface (`dlp.storage`) with one working backend, a local JSON-file store, meant for development and single-machine use.
+
+A real deployment should not rely on a single server for this: if the only copy of a manifest lives on one company's disk, that company has effectively become the single point of failure DLP was designed to avoid. Reasonable options include replicating the manifest to each trustee's own device (they already need to trust each other for quorum, so this adds little additional exposure), a small number of independently-operated mirrors, or a content-addressed store like IPFS where the manifest's hash — not its location — is what beneficiaries and trustees are given in advance.
+
+## 11. Owner key recovery
+
+A gap in earlier drafts of this spec: if the owner loses their own private key before the switch ever activates, the manifest they signed becomes unmodifiable and unrevocable — updating or superseding it requires a fresh signature, which requires the key that's now gone.
+
+The reference implementation (`dlp.recovery`) offers an opt-in mitigation: the owner may split their own private key with Shamir's Secret Sharing among some or all of the same trustees who hold asset shares, at a threshold the owner sets independently of the quorum threshold used for switch activation. This is a genuine tradeoff, not a free fix — trustees who can collectively reconstruct the owner's signing key could, in principle, forge a manifest update while the owner is still alive, if enough of them colluded. For that reason:
+
+- The recovery threshold should generally be set **higher** than the activation threshold (e.g. requiring all N trustees to recover a live owner's key, but only M-of-N to activate the switch after death).
+- This mechanism is opt-in. An owner who decides the collusion risk isn't worth it can simply not use it — losing the key then means reissuing a fresh manifest from scratch, exactly as in the original design.
+
+## 12. Open questions for the community
 
 - Should manifests support partial activation (some assets release before others)?
 - How should minors or dependents with no public key be represented as beneficiaries?

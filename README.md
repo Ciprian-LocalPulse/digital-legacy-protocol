@@ -85,6 +85,32 @@ from dlp import shamir
 secret = shamir.reconstruct_secret([shares[0], shares[1]])  # any 2 of the 3
 ```
 
+Encrypting a contact hint so only the intended trustee can read it (see [spec 4.1](spec/SPEC.md#41-contact-hint-encryption)):
+
+```python
+from dlp import hint_crypto
+
+enc_priv, enc_pub = hint_crypto.generate_encryption_keypair()  # trustee's own keypair
+builder.add_trustee("t1", t1_signing_pub, contact_hint="Ada's sister, Elena",
+                     encryption_public_key=enc_pub)
+# only enc_priv can recover the plaintext hint from the stored manifest
+```
+
+Persisting a manifest locally, and giving the owner a way to recover their own key if lost:
+
+```python
+from dlp.storage import LocalFileStore
+from dlp import recovery
+
+store = LocalFileStore(".dlp_store")
+store.save(manifest)
+store.load(manifest["manifest_id"])
+
+# optional, and a real tradeoff — see spec section 11 before using this
+backup = recovery.backup_owner_key(owner_priv_raw_bytes, threshold=3,
+                                    trustee_ids=["t1", "t2", "t3", "t4"])
+```
+
 ## What's in this repository
 
 ```
@@ -94,10 +120,13 @@ digital-legacy-protocol/
 │   ├── manifest.py        build, validate, and sign manifests
 │   ├── crypto.py          Ed25519 signing/verification, canonical JSON serialization
 │   ├── shamir.py          Shamir's Secret Sharing over GF(256), built from scratch
+│   ├── hint_crypto.py     X25519 + AES-256-GCM encryption for contact hints
+│   ├── recovery.py        opt-in Shamir backup of the owner's own signing key
+│   ├── storage.py         ManifestStore interface + a working local file backend
 │   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum)
 │   ├── adapter.py         the interface platforms implement to become DLP-aware
-│   └── cli.py             `dlp keygen / demo / verify / inspect`
-├── tests/                 51 tests, 100% coverage on the crypto and switch logic
+│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-save / store-list / store-load`
+├── tests/                 91 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
 └── examples/              sample manifests and a worked-through inheritance scenario
 ```
 
@@ -113,7 +142,18 @@ digital-legacy-protocol/
 
 - Not a company, not a vault, not custody of your funds or secrets.
 - Not a replacement for a legal will — it's a technical layer a will can reference, written for the parts a lawyer can't verify cryptographically.
-- Not finished. This is a v0.1 draft spec plus a reference implementation, built to be argued with. See the open questions at the end of `SPEC.md`.
+
+## Current status — read this before trusting it with anything real
+
+This is v0.2: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
+
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, and opt-in owner key recovery. 91 tests, 94% coverage, CI on every push.
+
+**Exists as an interface but has no real-world implementation yet:** `DLPAdapter` — no bank, exchange, or password manager actually honors DLP manifests today. `checkin.method` values like `email_confirm` or `app_heartbeat` describe intent in the spec; nothing in this repo sends or receives those messages yet.
+
+**Doesn't exist at all yet:** a web or mobile UI (this is a Python library and CLI — you need to be comfortable with a terminal to use it today), an independent security audit (everything here has been tested by its own author, which is a different bar than "reviewed by someone with no stake in it being correct"), and any legal opinion on whether trustee-quorum attestation has standing anywhere as evidence of death or incapacity. That last one specifically isn't something code can settle — it needs an actual lawyer, in an actual jurisdiction.
+
+If you're evaluating this for something real: the protocol and cryptography are a defensible foundation to build on. The parts that make it usable by a non-technical family, and legally meaningful, are not here yet.
 
 ## Contributing
 
