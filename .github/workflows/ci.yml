@@ -2,17 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,17 +31,21 @@ jobs:
           cache: pip
 
       - name: Install package with dev dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ".[dev,web]"
 
       - name: Run test suite
-        run: pytest tests/ -v --cov=dlp --cov-report=term-missing
+        run: |
+          pytest tests/ -v --cov=dlp --cov-report=term-missing
 
       - name: Run the end-to-end demo (smoke test)
-        run: python -m dlp.cli demo
+        run: |
+          python -m dlp.cli demo
 
   lint:
-    name: Lint & type-check
+    name: Lint & Type Check
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,28 +56,37 @@ jobs:
           cache: pip
 
       - name: Install package with dev dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e ".[dev]"
 
       - name: Ruff
-        run: ruff check dlp/ tests/
+        run: |
+          ruff check dlp/ tests/
 
       - name: Black (check only)
-        run: black --check dlp/ tests/
+        run: |
+          black --check dlp/ tests/
 
-      - name: mypy
-        run: mypy dlp/ --ignore-missing-imports
-        continue-on-error: true  # informative for now, not yet a hard gate
+      - name: MyPy
+        run: |
+          mypy dlp/ --ignore-missing-imports
+        continue-on-error: true
 
   spec-consistency:
     name: Spec file exists and is non-trivial
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Check spec file
+        shell: bash
         run: |
           test -f spec/SPEC.md
+
           lines=$(wc -l < spec/SPEC.md)
           echo "spec/SPEC.md has $lines lines"
+
           if [ "$lines" -lt 50 ]; then
             echo "Spec looks suspiciously short for a protocol document."
             exit 1
