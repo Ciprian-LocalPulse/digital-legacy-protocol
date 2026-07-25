@@ -1,0 +1,62 @@
+{
+  "dlp_version": "0.1",
+  "manifest_id": "d819bb81-b61d-4fbb-a413-13044c458662",
+  "owner": {
+    "public_key": "ed25519:Z3zWWTtjuxUgYtIGczhgo880I75FpMgxqQHwwEuuEFg=",
+    "display_name": "Example Owner"
+  },
+  "created_at": "2026-07-25T02:45:32.598444+00:00",
+  "updated_at": "2026-07-25T02:45:32.598480+00:00",
+  "supersedes": null,
+  "checkin": {
+    "interval_days": 90,
+    "grace_days": 30,
+    "method": "signed_ping"
+  },
+  "quorum": {
+    "threshold": 2,
+    "trustees": [
+      {
+        "trustee_id": "sister",
+        "public_key": "ed25519:AYU/JSC/Lsj3Mxhg4EKssGr9Ti23vcXJ2O5UnpnbqbQ=",
+        "contact_hint": "sister"
+      },
+      {
+        "trustee_id": "lawyer",
+        "public_key": "ed25519:Ho+iRDxRLNO8OtMPBvS0n1+bIVbRHFgfG50IZVxXQfU=",
+        "contact_hint": "estate lawyer"
+      },
+      {
+        "trustee_id": "friend",
+        "public_key": "ed25519:X4+twcdSZ4q9I7Zia+RrJOrbFVPO39KKkfKz7qJUkT4=",
+        "contact_hint": "close friend"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "asset_id": "e1079d31-bbdb-44d7-b613-c5dfa7a0603e",
+      "type": "crypto_wallet",
+      "reference": "cold storage wallet",
+      "share_scheme": "shamir",
+      "shares_distributed_to": [
+        "sister",
+        "lawyer",
+        "friend"
+      ],
+      "beneficiary_id": "child",
+      "conditions": [
+        "quorum_reached"
+      ],
+      "action": "release_key"
+    }
+  ],
+  "beneficiaries": [
+    {
+      "beneficiary_id": "child",
+      "public_key": null,
+      "contact_hint": "son"
+    }
+  ],
+  "signature": "NgR1NdvcGcdyjL3jxi9We2lfSRTWO7G9SwAuOekvOiIEWTapWTqrSeV//ehgqlor5Yejq0zvqOQyTPr7GAbpCA=="
+}
