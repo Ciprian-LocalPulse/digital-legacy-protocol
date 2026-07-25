@@ -1,0 +1,21 @@
+<svg width="900" height="40" viewBox="0 0 900 40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="divider">
+  <defs>
+    <linearGradient id="lineFade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00ff41" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#00ff41" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00ff41" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="g" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="0" y="18" width="900" height="2" fill="url(#lineFade)" filter="url(#g)">
+    <animate attributeName="opacity" values="0.4;1;0.4;0.85;0.4" dur="2.2s" repeatCount="indefinite"/>
+  </rect>
+  <text x="450" y="14" text-anchor="middle" font-family="monospace" font-size="11"
+        fill="#00ff41" letter-spacing="3" opacity="0.8">
+    01000100 01001100 01010000
+    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="3s" repeatCount="indefinite"/>
+  </text>
+</svg>
