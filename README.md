@@ -8,12 +8,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Spec: CC0](https://img.shields.io/badge/Spec-CC0%201.0-blue.svg)](spec/SPEC.md)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+[![Whitepaper](https://img.shields.io/badge/whitepaper-read-00ff41.svg)](WHITEPAPER.md)
 
 **An open protocol for what happens to your digital life after you're gone — verified by people you trust, not by a company's support ticket queue.**
 
 Billions of dollars in cryptocurrency are permanently lost because private keys died with their owners. Families spend months fighting platform support to close a deceased parent's account. Every service — banks, exchanges, email providers, password managers — has invented its own incompatible, usually nonexistent policy for this. DLP is a small attempt to fix that with a standard instead of a company.
 
 There is no server to sign up for, no token, no subscription. It's a spec plus a reference implementation. Fork it, embed it, ignore it.
+
+For the formal writeup — motivation, related work, threat model, and an explicit accounting of what remains unproven — see [WHITEPAPER.md](WHITEPAPER.md).
 
 ## The idea in one paragraph
 
