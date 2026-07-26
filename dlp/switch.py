@@ -30,6 +30,21 @@ class Attestation:
     confirms_unreachable: bool
     timestamp: datetime
 
+    def to_dict(self) -> dict:
+        return {
+            "trustee_id": self.trustee_id,
+            "confirms_unreachable": self.confirms_unreachable,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+    @staticmethod
+    def from_dict(d: dict) -> Attestation:
+        return Attestation(
+            trustee_id=d["trustee_id"],
+            confirms_unreachable=d["confirms_unreachable"],
+            timestamp=datetime.fromisoformat(d["timestamp"]),
+        )
+
 
 @dataclass
 class DeadMansSwitch:
@@ -40,6 +55,47 @@ class DeadMansSwitch:
     last_checkin: datetime
     attestations: List[Attestation] = field(default_factory=list)
     _aborted_at: Optional[datetime] = None
+
+    def to_dict(self) -> dict:
+        """Serializes full state, including the internal _aborted_at
+        field — this is persisted state, not a public API surface, so
+        round-tripping it exactly matters more than hiding the
+        underscore-prefixed attribute."""
+        return {
+            "manifest_id": self.manifest_id,
+            "interval_days": self.interval_days,
+            "grace_days": self.grace_days,
+            "quorum_threshold": self.quorum_threshold,
+            "last_checkin": self.last_checkin.isoformat(),
+            "attestations": [a.to_dict() for a in self.attestations],
+            "aborted_at": self._aborted_at.isoformat() if self._aborted_at else None,
+        }
+
+    @staticmethod
+    def from_dict(d: dict) -> DeadMansSwitch:
+        return DeadMansSwitch(
+            manifest_id=d["manifest_id"],
+            interval_days=d["interval_days"],
+            grace_days=d["grace_days"],
+            quorum_threshold=d["quorum_threshold"],
+            last_checkin=datetime.fromisoformat(d["last_checkin"]),
+            attestations=[Attestation.from_dict(a) for a in d.get("attestations", [])],
+            _aborted_at=(datetime.fromisoformat(d["aborted_at"]) if d.get("aborted_at") else None),
+        )
+
+    @staticmethod
+    def from_manifest(manifest: dict, at: Optional[datetime] = None) -> DeadMansSwitch:
+        """Initializes a fresh switch from a manifest's checkin/quorum
+        config, with last_checkin set to now (or the given time) — the
+        natural starting point when an owner first activates monitoring
+        for a manifest they've just signed."""
+        return DeadMansSwitch(
+            manifest_id=manifest["manifest_id"],
+            interval_days=manifest["checkin"]["interval_days"],
+            grace_days=manifest["checkin"]["grace_days"],
+            quorum_threshold=manifest["quorum"]["threshold"],
+            last_checkin=at or datetime.now(timezone.utc),
+        )
 
     def record_checkin(self, at: Optional[datetime] = None) -> None:
         """Owner proves they're alive. Resets everything."""

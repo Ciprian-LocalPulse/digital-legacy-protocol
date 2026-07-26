@@ -144,6 +144,20 @@ print(result.detail)  # e.g. "created private gist: https://gist.github.com/..."
 
 See `examples/github_adapter_demo.py` for a runnable end-to-end version (set `GITHUB_TOKEN` to see it hit the real API).
 
+Running the actual dead man's switch for a stored manifest — from the CLI, across as many days as you want between commands, since state is persisted to disk:
+
+```bash
+dlp switch-init <manifest_id>       # starts the check-in clock
+dlp switch-status <manifest_id>     # see current state at any time
+dlp switch-checkin <manifest_id>    # owner proves they're alive, resets the clock
+
+# once overdue + grace period has elapsed, trustees attest:
+dlp switch-attest <manifest_id> <trustee_id> --unreachable
+dlp switch-attest <manifest_id> <trustee_id> --reachable   # any single one of these aborts activation
+```
+
+The same lifecycle is available from `dlp web` — every manifest page shows live switch status with buttons for check-in and attestation, no CLI required.
+
 ## What's in this repository
 
 ```
@@ -157,12 +171,12 @@ digital-legacy-protocol/
 │   ├── recovery.py        opt-in Shamir backup of the owner's own signing key
 │   ├── storage.py         ManifestStore interface + a working local file backend
 │   ├── notify.py          real SMTP email delivery + the actual message content for each event
-│   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum)
+│   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum) — now with persistence via storage.LocalSwitchStore
 │   ├── adapter.py         the DLPAdapter interface platforms implement to become DLP-aware
 │   ├── adapters/           real adapter implementations — currently GitHubAdapter (Gists + repo collaborators)
-│   ├── webapp/             minimal Flask UI — create/inspect/verify manifests without a terminal (optional extra)
-│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-save / store-list / store-load / web`
-├── tests/                 131 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
+│   ├── webapp/             minimal Flask UI — create/inspect/verify manifests AND run the switch lifecycle, without a terminal (optional extra)
+│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-* / switch-init / switch-status / switch-checkin / switch-attest / web`
+├── tests/                 167 tests, 94% coverage package-wide (100% on crypto and switch)
 └── examples/              sample manifests, a worked inheritance scenario, and a live GitHub adapter demo
 ```
 
@@ -183,7 +197,7 @@ digital-legacy-protocol/
 
 This is v0.4: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 131 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — now persisted and runnable via both CLI and web UI, not just a library exercised in isolation — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 167 tests, 94% coverage, CI on every push.
 
 **Exists and works against a real external API, but only for one service:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. No bank, exchange, or password manager honors DLP manifests yet; GitHub is a proof that the `DLPAdapter` interface is genuinely implementable, not yet evidence of real-world adoption. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
 

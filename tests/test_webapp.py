@@ -169,3 +169,121 @@ def test_multiple_manifests_all_listed(client):
     body = r.get_data(as_text=True)
     assert "Ada" in body
     assert "Bogdan" in body
+
+
+def test_manifest_view_shows_start_monitoring_before_switch_init(client):
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    r = client.get(f"/manifest/{manifest_id}")
+    assert "Start monitoring" in r.get_data(as_text=True)
+
+
+def test_switch_init_creates_active_switch(client):
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+
+    r = client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "active" in body
+    assert "Check in now" in body
+
+
+def test_switch_init_missing_manifest_404s(client):
+    r = client.post("/manifest/does-not-exist/switch/init")
+    assert r.status_code == 404
+
+
+def test_switch_checkin_before_init_404s(client):
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    r = client.post(f"/manifest/{manifest_id}/switch/checkin")
+    assert r.status_code == 404
+
+
+def test_full_switch_lifecycle_through_web_ui(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)  # force well past overdue+grace
+    switch_store.save(sw)
+
+    r = client.get(f"/manifest/{manifest_id}")
+    assert "verification" in r.get_data(as_text=True)
+
+    manifest = st.LocalFileStore(store_dir).load(manifest_id)
+    trustee_ids = [t["trustee_id"] for t in manifest["quorum"]["trustees"]]
+
+    r = client.post(
+        f"/manifest/{manifest_id}/switch/attest",
+        data={"trustee_id": trustee_ids[0], "verdict": "unreachable"},
+        follow_redirects=True,
+    )
+    assert "Confirmations needed: 1" in r.get_data(as_text=True)
+
+    r = client.post(
+        f"/manifest/{manifest_id}/switch/attest",
+        data={"trustee_id": trustee_ids[1], "verdict": "unreachable"},
+        follow_redirects=True,
+    )
+    assert "activated" in r.get_data(as_text=True)
+
+
+def test_switch_checkin_resets_after_activation(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)
+    switch_store.save(sw)
+
+    r = client.post(f"/manifest/{manifest_id}/switch/checkin", follow_redirects=True)
+    assert "active" in r.get_data(as_text=True)
+    assert switch_store.load(manifest_id).state().value == "active"
+
+
+def test_switch_attest_reachable_aborts_via_web(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)
+    switch_store.save(sw)
+
+    manifest = st.LocalFileStore(store_dir).load(manifest_id)
+    trustee_id = manifest["quorum"]["trustees"][0]["trustee_id"]
+
+    r = client.post(
+        f"/manifest/{manifest_id}/switch/attest",
+        data={"trustee_id": trustee_id, "verdict": "reachable"},
+        follow_redirects=True,
+    )
+    assert "aborted" in r.get_data(as_text=True)
+
+
+def test_switch_attest_too_early_does_not_crash(client):
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    r = client.post(
+        f"/manifest/{manifest_id}/switch/attest",
+        data={"trustee_id": "t1", "verdict": "unreachable"},
+        follow_redirects=True,
+    )
+    # silently ignored per design — still redirects to a normal 200 page, still "active"
+    assert r.status_code == 200
+    assert "active" in r.get_data(as_text=True)

@@ -22,6 +22,53 @@
 </div>
 
 <div class="panel">
+  <h3>Dead man's switch</h3>
+  {% if switch is none %}
+    <p class="muted">Not yet monitored. Starting this begins the check-in clock.</p>
+    <form method="post" action="{{ url_for('switch_init', manifest_id=manifest.manifest_id) }}">
+      <button type="submit">Start monitoring</button>
+    </form>
+  {% else %}
+    <p>
+      State:
+      <span class="{{ 'ok' if switch_state == 'active' else ('muted' if switch_state == 'aborted' else 'bad') }}">
+        {{ switch_state }}
+      </span>
+    </p>
+    {% if switch_state in ('active', 'overdue') %}
+      <p class="muted">Days until overdue: {{ "%.1f"|format(switch.days_until_overdue()) }}</p>
+    {% elif switch_state in ('verification', 'activated') %}
+      <p class="muted">Confirmations needed: {{ switch.confirmations_needed() }}</p>
+      {% for a in switch.attestations %}
+        <p class="muted">trustee <code>{{ a.trustee_id[:8] }}…</code>:
+          {{ "unreachable" if a.confirms_unreachable else "reachable (aborted activation)" }}</p>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{{ url_for('switch_checkin', manifest_id=manifest.manifest_id) }}">
+      <button type="submit">Check in now (owner)</button>
+    </form>
+
+    {% if switch_state in ('verification', 'activated') %}
+    <form method="post" action="{{ url_for('switch_attest', manifest_id=manifest.manifest_id) }}" style="margin-top:1rem;">
+      <label>Trustee attestation</label>
+      <select name="trustee_id">
+        {% for t in manifest.quorum.trustees %}
+        <option value="{{ t.trustee_id }}">{{ t.trustee_id[:8] }}… ({{ "encrypted hint" if t.contact_hint_encrypted else t.contact_hint or "no hint" }})</option>
+        {% endfor %}
+      </select>
+      <label>Verdict</label>
+      <select name="verdict">
+        <option value="unreachable">Owner cannot be reached</option>
+        <option value="reachable">Owner is fine — abort</option>
+      </select>
+      <button type="submit">Submit attestation</button>
+    </form>
+    {% endif %}
+  {% endif %}
+</div>
+
+<div class="panel">
   <h3>Trustees</h3>
   <table>
     <tr><th>ID</th><th>Contact hint</th></tr>

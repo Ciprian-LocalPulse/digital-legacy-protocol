@@ -9,6 +9,10 @@ Command-line interface for DLP.
     dlp store-save <manifest.json> [--dir PATH]
     dlp store-list [--dir PATH]
     dlp store-load <manifest_id> [--dir PATH]
+    dlp switch-init <manifest_id> [--dir PATH]
+    dlp switch-status <manifest_id> [--dir PATH]
+    dlp switch-checkin <manifest_id> [--dir PATH]
+    dlp switch-attest <manifest_id> <trustee_id> (--unreachable | --reachable) [--dir PATH]
     dlp web [--dir PATH] [--host HOST] [--port PORT]   # requires the 'web' extra
 """
 
@@ -27,10 +31,16 @@ from .manifest import (
     is_signature_valid,
     validate_manifest,
 )
-from .storage import LocalFileStore, ManifestNotFoundError
+from .storage import (
+    LocalFileStore,
+    LocalSwitchStore,
+    ManifestNotFoundError,
+    SwitchNotFoundError,
+)
 from .switch import DeadMansSwitch, SwitchState
 
 _DEFAULT_STORE_DIR = ".dlp_store"
+_DEFAULT_SWITCH_DIR = ".dlp_store/switches"
 
 
 def cmd_keygen(_args: argparse.Namespace) -> None:
@@ -192,6 +202,81 @@ def cmd_web(args: argparse.Namespace) -> None:
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 
+def cmd_switch_init(args: argparse.Namespace) -> None:
+    manifest_store = LocalFileStore(args.dir)
+    try:
+        manifest = manifest_store.load(args.manifest_id)
+    except ManifestNotFoundError:
+        print(f"No manifest found with id {args.manifest_id!r} in {args.dir}/")
+        sys.exit(1)
+
+    switch_store = LocalSwitchStore(args.switch_dir)
+    if args.manifest_id in switch_store.list_ids() and not args.force:
+        print(
+            f"A switch already exists for {args.manifest_id}. "
+            f"Use --force to reset it (this clears attestations and resets the check-in timer)."
+        )
+        sys.exit(1)
+
+    sw = DeadMansSwitch.from_manifest(manifest)
+    switch_store.save(sw)
+    print(f"Switch initialized for manifest {args.manifest_id}")
+    print(f"  check-in every {sw.interval_days} days, {sw.grace_days} day grace period")
+    print(f"  quorum threshold: {sw.quorum_threshold}")
+
+
+def cmd_switch_status(args: argparse.Namespace) -> None:
+    switch_store = LocalSwitchStore(args.switch_dir)
+    try:
+        sw = switch_store.load(args.manifest_id)
+    except SwitchNotFoundError:
+        print(f"No switch found for manifest {args.manifest_id!r}. Run `dlp switch-init` first.")
+        sys.exit(1)
+
+    state = sw.state()
+    print(f"Manifest: {args.manifest_id}")
+    print(f"State: {state.value}")
+    if state == SwitchState.ACTIVE:
+        print(f"Days until overdue: {sw.days_until_overdue():.1f}")
+    elif state in (SwitchState.VERIFICATION, SwitchState.ACTIVATED):
+        print(f"Confirmations needed: {sw.confirmations_needed()}")
+        for a in sw.attestations:
+            verdict = "unreachable" if a.confirms_unreachable else "reachable (aborts activation)"
+            print(f"  trustee {a.trustee_id}: {verdict} (at {a.timestamp.isoformat()})")
+
+
+def cmd_switch_checkin(args: argparse.Namespace) -> None:
+    switch_store = LocalSwitchStore(args.switch_dir)
+    try:
+        sw = switch_store.load(args.manifest_id)
+    except SwitchNotFoundError:
+        print(f"No switch found for manifest {args.manifest_id!r}. Run `dlp switch-init` first.")
+        sys.exit(1)
+
+    sw.record_checkin()
+    switch_store.save(sw)
+    print(f"Check-in recorded for {args.manifest_id}. State: {sw.state().value}")
+
+
+def cmd_switch_attest(args: argparse.Namespace) -> None:
+    switch_store = LocalSwitchStore(args.switch_dir)
+    try:
+        sw = switch_store.load(args.manifest_id)
+    except SwitchNotFoundError:
+        print(f"No switch found for manifest {args.manifest_id!r}. Run `dlp switch-init` first.")
+        sys.exit(1)
+
+    confirms_unreachable = args.unreachable
+    try:
+        sw.record_attestation(args.trustee_id, confirms_unreachable=confirms_unreachable)
+    except RuntimeError as e:
+        print(f"Cannot record attestation: {e}")
+        sys.exit(1)
+
+    switch_store.save(sw)
+    print(f"Attestation recorded for trustee {args.trustee_id}. State: {sw.state().value}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dlp", description="Digital Legacy Protocol CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -223,6 +308,47 @@ def main() -> None:
     p_store_load.add_argument("manifest_id")
     p_store_load.add_argument("--dir", default=_DEFAULT_STORE_DIR)
     p_store_load.set_defaults(func=cmd_store_load)
+
+    p_switch_init = sub.add_parser(
+        "switch-init", help="start monitoring a stored manifest's dead man's switch"
+    )
+    p_switch_init.add_argument("manifest_id")
+    p_switch_init.add_argument(
+        "--dir", default=_DEFAULT_STORE_DIR, help="manifest storage directory"
+    )
+    p_switch_init.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
+    p_switch_init.add_argument("--force", action="store_true", help="reset an existing switch")
+    p_switch_init.set_defaults(func=cmd_switch_init)
+
+    p_switch_status = sub.add_parser("switch-status", help="show a manifest's switch state")
+    p_switch_status.add_argument("manifest_id")
+    p_switch_status.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
+    p_switch_status.set_defaults(func=cmd_switch_status)
+
+    p_switch_checkin = sub.add_parser(
+        "switch-checkin", help="record that the owner is alive and checking in"
+    )
+    p_switch_checkin.add_argument("manifest_id")
+    p_switch_checkin.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
+    p_switch_checkin.set_defaults(func=cmd_switch_checkin)
+
+    p_switch_attest = sub.add_parser(
+        "switch-attest", help="record a trustee's attestation during verification"
+    )
+    p_switch_attest.add_argument("manifest_id")
+    p_switch_attest.add_argument("trustee_id")
+    attest_group = p_switch_attest.add_mutually_exclusive_group(required=True)
+    attest_group.add_argument(
+        "--unreachable", action="store_true", help="trustee confirms the owner cannot be reached"
+    )
+    attest_group.add_argument(
+        "--reachable",
+        dest="unreachable",
+        action="store_false",
+        help="trustee confirms the owner is fine — aborts activation",
+    )
+    p_switch_attest.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
+    p_switch_attest.set_defaults(func=cmd_switch_attest)
 
     p_web = sub.add_parser("web", help="launch the local web UI (requires the 'web' extra)")
     p_web.add_argument("--dir", default=_DEFAULT_STORE_DIR, help="manifest storage directory")

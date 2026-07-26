@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0] — 2026-07-26
+
+Closes a gap that had persisted since 0.1.0 without anyone flagging it explicitly: `dlp.switch.DeadMansSwitch` was fully implemented and 100%-tested as a library, but had no persistence and no CLI or web exposure. Every check-in and attestation had to happen inside a single Python process — there was no way to actually *run* a switch across multiple real-world days.
+
+### Added
+- `DeadMansSwitch.to_dict()` / `.from_dict()` / `.from_manifest()` — serialization for the switch state machine, including correct round-tripping of the internal abort timestamp and all attestations.
+- `dlp.storage.LocalSwitchStore` — persists switch state to one JSON file per manifest, deliberately separate from `ManifestStore` (switch state mutates constantly; the signed manifest should not).
+- CLI: `dlp switch-init`, `dlp switch-status`, `dlp switch-checkin`, `dlp switch-attest`. Manually verified end-to-end, including backdating a switch to simulate 130 days without a check-in and walking it through verification, quorum activation, and the single-trustee abort path.
+- Web UI: every manifest page now shows live switch status (or a "Start monitoring" button if none exists yet), a check-in button, and an attestation form once verification has started — so the entire owner/trustee lifecycle, not just manifest creation, is usable without a terminal.
+- 36 new tests (167 total, 2 skipped by design): switch serialization round-trips (including the abort and activation edge cases), `LocalSwitchStore` CRUD and path-traversal rejection, all four new CLI commands, and the full switch lifecycle exercised through Flask's test client and against a real running server via `curl`.
+
+### Notes
+- `switch-attest` intentionally refuses (CLI: exits with an error; web: silently no-ops) if called before verification has actually started — matching `DeadMansSwitch.record_attestation()`'s existing guard rather than working around it.
+- The web UI's attestation form only appears once a switch has entered `verification` or `activated` state, so the "too early" case is normally unreachable through the UI itself; the CLI and the underlying library still enforce it either way, since a browser isn't the only client that will ever call these routes.
+
 ## [0.4.0] — 2026-07-25
 
 The first real `DLPAdapter` implementation — closes the "no bank, exchange, or password manager actually honors DLP manifests today" gap for at least one real service.

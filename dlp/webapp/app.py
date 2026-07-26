@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, url_for
 
 from .. import crypto, hint_crypto
 from ..manifest import (
@@ -29,7 +29,13 @@ from ..manifest import (
     is_signature_valid,
     validate_manifest,
 )
-from ..storage import LocalFileStore, ManifestNotFoundError
+from ..storage import (
+    LocalFileStore,
+    LocalSwitchStore,
+    ManifestNotFoundError,
+    SwitchNotFoundError,
+)
+from ..switch import DeadMansSwitch
 
 
 def create_app(store_dir: str = ".dlp_store") -> Flask:
@@ -38,6 +44,9 @@ def create_app(store_dir: str = ".dlp_store") -> Flask:
 
     def _store() -> LocalFileStore:
         return LocalFileStore(app.config["STORE_DIR"])
+
+    def _switch_store() -> LocalSwitchStore:
+        return LocalSwitchStore(str(Path(app.config["STORE_DIR"]) / "switches"))
 
     @app.route("/")
     def index():
@@ -136,12 +145,59 @@ def create_app(store_dir: str = ".dlp_store") -> Flask:
             manifest = _store().load(manifest_id)
         except (ManifestNotFoundError, ValueError):
             return render_template("not_found.html", manifest_id=manifest_id), 404
+
+        sw = None
+        try:
+            sw = _switch_store().load(manifest_id)
+        except SwitchNotFoundError:
+            pass
+
         return render_template(
             "manifest.html",
             manifest=manifest,
             manifest_json=json.dumps(manifest, indent=2, sort_keys=True),
             signature_valid=is_signature_valid(manifest),
+            switch=sw,
+            switch_state=sw.state().value if sw else None,
         )
+
+    @app.route("/manifest/<manifest_id>/switch/init", methods=["POST"])
+    def switch_init(manifest_id: str):
+        try:
+            manifest = _store().load(manifest_id)
+        except ManifestNotFoundError:
+            return render_template("not_found.html", manifest_id=manifest_id), 404
+        sw = DeadMansSwitch.from_manifest(manifest)
+        _switch_store().save(sw)
+        return redirect(url_for("view_manifest", manifest_id=manifest_id))
+
+    @app.route("/manifest/<manifest_id>/switch/checkin", methods=["POST"])
+    def switch_checkin(manifest_id: str):
+        store = _switch_store()
+        try:
+            sw = store.load(manifest_id)
+        except SwitchNotFoundError:
+            return render_template("not_found.html", manifest_id=manifest_id), 404
+        sw.record_checkin()
+        store.save(sw)
+        return redirect(url_for("view_manifest", manifest_id=manifest_id))
+
+    @app.route("/manifest/<manifest_id>/switch/attest", methods=["POST"])
+    def switch_attest(manifest_id: str):
+        store = _switch_store()
+        try:
+            sw = store.load(manifest_id)
+        except SwitchNotFoundError:
+            return render_template("not_found.html", manifest_id=manifest_id), 404
+        trustee_id = request.form.get("trustee_id", "")
+        confirms_unreachable = request.form.get("verdict") == "unreachable"
+        try:
+            sw.record_attestation(trustee_id, confirms_unreachable=confirms_unreachable)
+        except RuntimeError:
+            pass  # too early to attest — silently ignored, the button shouldn't be visible then anyway
+        else:
+            store.save(sw)
+        return redirect(url_for("view_manifest", manifest_id=manifest_id))
 
     @app.route("/verify", methods=["GET", "POST"])
     def verify():

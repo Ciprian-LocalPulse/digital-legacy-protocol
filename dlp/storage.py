@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from . import manifest as manifest_mod
+from . import switch as switch_mod
 
 
 class ManifestNotFoundError(KeyError):
@@ -108,6 +109,47 @@ class LocalFileStore(ManifestStore):
     def delete(self, manifest_id: str) -> None:
         path = self._path_for(manifest_id)
         path.unlink(missing_ok=True)
+
+    def list_ids(self) -> List[str]:
+        return [p.stem for p in self._dir.glob("*.json")]
+
+
+class SwitchNotFoundError(KeyError):
+    pass
+
+
+class LocalSwitchStore:
+    """Persists DeadMansSwitch state across process invocations — without
+    this, every `dlp switch-*` CLI command would start from a blank
+    switch, since dlp.switch.DeadMansSwitch is otherwise a plain
+    in-memory object with no concept of where it lives. One JSON file per
+    manifest_id, deliberately kept separate from ManifestStore: switch
+    state changes constantly (every check-in, every attestation) while
+    the signed manifest itself should not, and mixing a frequently-
+    mutated file with a signed, integrity-sensitive one invites mistakes.
+    """
+
+    def __init__(self, directory: str | Path):
+        self._dir = Path(directory)
+        self._dir.mkdir(parents=True, exist_ok=True)
+
+    def _path_for(self, manifest_id: str) -> Path:
+        if "/" in manifest_id or "\\" in manifest_id or ".." in manifest_id:
+            raise ValueError(f"unsafe manifest_id: {manifest_id!r}")
+        return self._dir / f"{manifest_id}.json"
+
+    def save(self, switch_state: switch_mod.DeadMansSwitch) -> None:
+        path = self._path_for(switch_state.manifest_id)
+        path.write_text(json.dumps(switch_state.to_dict(), indent=2, sort_keys=True))
+
+    def load(self, manifest_id: str) -> switch_mod.DeadMansSwitch:
+        path = self._path_for(manifest_id)
+        if not path.exists():
+            raise SwitchNotFoundError(manifest_id)
+        return switch_mod.DeadMansSwitch.from_dict(json.loads(path.read_text()))
+
+    def delete(self, manifest_id: str) -> None:
+        self._path_for(manifest_id).unlink(missing_ok=True)
 
     def list_ids(self) -> List[str]:
         return [p.stem for p in self._dir.glob("*.json")]
