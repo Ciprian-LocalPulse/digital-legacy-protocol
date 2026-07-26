@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "digital-legacy-protocol"
-version = "0.3.0"
+version = "0.4.0"
 description = "An open protocol and reference implementation for verifiable digital inheritance — no single company decides whether you're gone."
 readme = "README.md"
 license = { text = "MIT" }
@@ -55,6 +55,9 @@ include = ["dlp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "live_network: test makes a real network call to an external service (best-effort, skips on failure)",
+]
 
 [tool.black]
 line-length = 100

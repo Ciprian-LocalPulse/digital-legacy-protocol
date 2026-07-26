@@ -129,6 +129,18 @@ pip install -e ".[web]"
 dlp web   # serves a local UI at http://127.0.0.1:5000 — create/inspect/verify without touching Python
 ```
 
+Handing a reconstructed secret to a real platform once quorum activates — currently GitHub (Gists for messages, repo collaborators for access grants):
+
+```python
+from dlp.adapters.github import GitHubAdapter
+
+adapter = GitHubAdapter(personal_access_token="ghp_your_token_here")
+result = adapter.on_activation(manifest, asset_id, reconstructed_secret)
+print(result.detail)  # e.g. "created private gist: https://gist.github.com/..."
+```
+
+See `examples/github_adapter_demo.py` for a runnable end-to-end version (set `GITHUB_TOKEN` to see it hit the real API).
+
 ## What's in this repository
 
 ```
@@ -143,11 +155,12 @@ digital-legacy-protocol/
 │   ├── storage.py         ManifestStore interface + a working local file backend
 │   ├── notify.py          real SMTP email delivery + the actual message content for each event
 │   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum)
-│   ├── adapter.py         the interface platforms implement to become DLP-aware
+│   ├── adapter.py         the DLPAdapter interface platforms implement to become DLP-aware
+│   ├── adapters/           real adapter implementations — currently GitHubAdapter (Gists + repo collaborators)
 │   ├── webapp/             minimal Flask UI — create/inspect/verify manifests without a terminal (optional extra)
 │   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-save / store-list / store-load / web`
-├── tests/                 118 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
-└── examples/              sample manifests and a worked-through inheritance scenario
+├── tests/                 131 tests, 94% coverage package-wide (100% on crypto, switch, and recovery)
+└── examples/              sample manifests, a worked inheritance scenario, and a live GitHub adapter demo
 ```
 
 ## Design principles (details in [spec/SPEC.md](spec/SPEC.md))
@@ -165,15 +178,15 @@ digital-legacy-protocol/
 
 ## Current status — read this before trusting it with anything real
 
-This is v0.3: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
+This is v0.4: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, opt-in owner key recovery, real SMTP email delivery, and a working local web UI. 118 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine, local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 131 tests, 94% coverage, CI on every push.
 
-**Exists as an interface but has no real-world implementation yet:** `DLPAdapter` — no bank, exchange, or password manager actually honors DLP manifests today. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
+**Exists and works against a real external API, but only for one service:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. No bank, exchange, or password manager honors DLP manifests yet; GitHub is a proof that the `DLPAdapter` interface is genuinely implementable, not yet evidence of real-world adoption. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
 
 **Doesn't exist at all yet:** a *hosted, multi-tenant* web UI — the reference UI generates private keys server-side, which is fine for local single-user use and explicitly not fine for a shared deployment (see spec section 14); an independent security audit (everything here has been tested by its own author, which is a different bar than "reviewed by someone with no stake in it being correct"); and any legal opinion on whether trustee-quorum attestation has standing anywhere as evidence of death or incapacity. That last one specifically isn't something code can settle — it needs an actual lawyer, in an actual jurisdiction.
 
-If you're evaluating this for something real: the protocol, cryptography, and now the delivery/UI layers are a defensible foundation to build on. What's still missing is real third-party adoption and legal grounding — neither of which more code can produce on its own.
+If you're evaluating this for something real: the protocol, cryptography, and delivery/UI/adapter layers are a defensible foundation to build on. What's still missing is real third-party adoption beyond one proof-of-concept adapter, and legal grounding — neither of which more code can produce on its own.
 
 ## Contributing
 

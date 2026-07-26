@@ -1,4 +1,4 @@
-# Digital Legacy Protocol (DLP) — Specification v0.3
+# Digital Legacy Protocol (DLP) — Specification v0.4
 
 **Status:** Draft / Request for Comments
 **Author:** Stefano (Ciprian-LocalPulse) & contributors
@@ -168,5 +168,16 @@ This is intentionally one channel, not a notification platform. A real deploymen
 The reference implementation ships a minimal, server-rendered web interface (`dlp.webapp`, an optional extra) so that using DLP does not strictly require comfort with a command line or the Python API. It covers manifest creation, inspection, and signature verification through plain HTML forms.
 
 This UI generates and displays private keys server-side, in the same process serving the page. That is an acceptable tradeoff for a local tool running on hardware the user controls, and an **unacceptable** one for a hosted, multi-tenant service — a server operator in that scenario would see every private key it generates on a user's behalf, which defeats a fair amount of the point of DLP existing at all. Anyone deploying this UI for multiple people over a network should move key generation and signing into the browser (e.g. via WebCrypto) or a separate trusted device, rather than assuming this reference implementation's approach scales to that setting unchanged.
+
+## 15. A worked Platform Adapter: GitHub
+
+Section 8 describes the `DLPAdapter` interface in the abstract. `dlp.adapters.github.GitHubAdapter` is a genuine, working implementation of it against a real external API, included specifically to prove the interface is implementable and not just a plausible-looking abstraction.
+
+It maps two of the four standard actions onto real GitHub behavior:
+
+- **`deliver_message`** creates a private Gist containing the reconstructed message, returning its URL — appropriate for a manifest asset that is really a final letter, a set of instructions, or a small document rather than a credential.
+- **`grant_access`** adds the beneficiary as a collaborator on a private repository, using an `owner/repo:username` convention in the asset's `reference` field.
+
+It deliberately does **not** attempt `release_key` or `execute_webhook` — GitHub's API has no natural mapping for either, and the adapter says so explicitly rather than pretending otherwise. This is the intended shape for future adapters generally: implement what a given platform can actually do well, and report unsupported actions clearly rather than partially faking them.
 
 Contributions and critique welcome — see `CONTRIBUTING.md`.

@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] — 2026-07-25
+
+The first real `DLPAdapter` implementation — closes the "no bank, exchange, or password manager actually honors DLP manifests today" gap for at least one real service.
+
+### Added
+- `dlp.adapters.github.GitHubAdapter` — a genuine `DLPAdapter` implementation calling the real GitHub REST API (`api.github.com`) over stdlib `urllib`, no new dependency. Supports two of the four spec actions against real GitHub behavior: `deliver_message` (creates a private Gist containing the reconstructed message and returns its URL) and `grant_access` (adds a beneficiary as a collaborator on a private repository). `release_key` and `execute_webhook` are explicitly reported as unsupported by this adapter rather than silently ignored.
+- `examples/github_adapter_demo.py` — an end-to-end example that actually calls the live API when a `GITHUB_TOKEN` environment variable is set, and explains what it would have done (without failing) when one isn't.
+- 14 new tests (131 total, 2 skipped by design). Write operations (Gist creation, collaborator invites) are tested by mocking `urllib.request.urlopen`, matching how `SMTPEmailChannel` is tested — real external calls have no place in a CI suite that needs to be deterministic. One additional opportunistic test hits the real, unauthenticated `api.github.com/zen` endpoint and skips cleanly if the environment is rate-limited or offline, rather than failing the build.
+
+### Notes
+- This adapter is stateless: `on_revocation()` is a documented no-op, since nothing here tracks which manifests it has already acted on. A production adapter with its own persistence would use that hook to cancel a pending collaborator invitation, for instance.
+- CI now installs the `web` extra alongside `dev` so the webapp test suite (added in 0.3.0) actually runs Flask-backed tests in CI, and lints `examples/` in addition to `dlp/` and `tests/`.
+
+### Still open (tracked for 0.5+)
+- Only one real adapter exists. The interface has now been proven against a genuine external API, but "GitHub can receive a Gist" is a long way from "a bank or exchange has agreed to honor this protocol."
+- No independent security audit.
+- No legal review of trustee-quorum attestation's standing as evidence of death or incapacity.
+- The web UI remains single-user/local-only by design.
+
 ## [0.3.0] — 2026-07-25
 
 Closes two more gaps from the "current status" section of the README: no way to actually notify a real person, and no way to use DLP without a terminal.
