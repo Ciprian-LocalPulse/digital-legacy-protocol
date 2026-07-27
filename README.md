@@ -16,7 +16,7 @@ Billions of dollars in cryptocurrency are permanently lost because private keys 
 
 There is no server to sign up for, no token, no subscription. It's a spec plus a reference implementation. Fork it, embed it, ignore it.
 
-For the formal writeup — motivation, related work, threat model, and an explicit accounting of what remains unproven — see [WHITEPAPER.md](WHITEPAPER.md).
+For the formal writeup — motivation, related work, threat model, and an explicit accounting of what remains unproven — see [WHITEPAPER.md](WHITEPAPER.md). For the project's stated principles and non-negotiable commitments, see [MANIFESTO.md](MANIFESTO.md). For citing this work academically, see [CITATION.cff](CITATION.cff).
 
 ## The idea in one paragraph
 
@@ -180,7 +180,12 @@ for a in attempts:
 
 ```
 digital-legacy-protocol/
-├── spec/SPEC.md          the actual protocol — start here if you're implementing DLP elsewhere
+├── MANIFESTO.md            the project's stated principles and non-negotiable commitments
+├── CITATION.cff            machine-readable citation metadata for academic use
+├── CODE_OF_CONDUCT.md      community conduct standards, written for this project's subject matter
+├── GOVERNANCE.md           how decisions are made today, and the path to a multi-maintainer process
+├── spec/SPEC.md             the actual protocol — start here if you're implementing DLP elsewhere
+├── docs/ARCHITECTURE.md    implementation-level module map and trust boundaries
 ├── dlp/
 │   ├── manifest.py        build, validate, and sign manifests
 │   ├── crypto.py          Ed25519 signing/verification, canonical JSON serialization
@@ -194,12 +199,12 @@ digital-legacy-protocol/
 │   ├── adapter.py         the DLPAdapter interface platforms implement to become DLP-aware
 │   ├── adapters/           real adapter implementations — currently GitHubAdapter (Gists + repo collaborators)
 │   ├── webapp/             minimal Flask UI — create/inspect/verify manifests AND run the switch lifecycle, without a terminal (optional extra)
-│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-* / switch-init / switch-status / switch-checkin / switch-attest / web`
+│   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-* / switch-init / switch-status / switch-checkin / switch-attest / switch-tick / web`
 ├── tests/                 190 tests, 94% coverage package-wide (100% on crypto and switch)
 └── examples/              sample manifests, a worked inheritance scenario, and a live GitHub adapter demo
 ```
 
-## Design principles (details in [spec/SPEC.md](spec/SPEC.md))
+## Design principles (details in [spec/SPEC.md](spec/SPEC.md) and [MANIFESTO.md](MANIFESTO.md))
 
 1. **No single company decides you're dead.** A quorum of trustees you personally chose does.
 2. **The manifest alone grants nothing.** It describes intent; the actual secrets are split and require quorum to reconstruct.
@@ -214,9 +219,9 @@ digital-legacy-protocol/
 
 ## Current status — read this before trusting it with anything real
 
-This is v0.4: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
+This is v0.6.0: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — persisted, runnable via both CLI and web UI, and now automatically notifying the right people at the right state transitions via `dlp.orchestrator` — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 190 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — persisted, runnable via both CLI and web UI, and automatically notifying the right people at the right state transitions via `dlp.orchestrator` — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 190 tests, 94% coverage, CI on every push.
 
 **Exists and works against a real external API, but only for one service:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. No bank, exchange, or password manager honors DLP manifests yet; GitHub is a proof that the `DLPAdapter` interface is genuinely implementable, not yet evidence of real-world adoption. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
 
@@ -226,7 +231,7 @@ If you're evaluating this for something real: the protocol, cryptography, and de
 
 ## Contributing
 
-Bug reports, spec critique, and platform adapter implementations are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). If you build a `DLPAdapter` for a real service (a password manager, an exchange, anything), open a PR linking it; this repo will keep a registry of known implementations.
+Bug reports, spec critique, and platform adapter implementations are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). If you build a `DLPAdapter` for a real service (a password manager, an exchange, anything), open a PR linking it; this repo will keep a registry of known implementations. Please also read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and see [GOVERNANCE.md](GOVERNANCE.md) for how decisions get made today and how that's expected to change as the project grows.
 
 <img src="assets/section-divider.svg" alt="" width="100%" />
 
@@ -251,3 +256,5 @@ Full details, including why donation addresses live in a separate file instead o
 
 - **Code** (everything under `dlp/`, `tests/`, `examples/`): MIT — see [LICENSE](LICENSE).
 - **Specification** (`spec/SPEC.md`): CC0 1.0, public domain. Nobody should ever need permission to implement a death-notification protocol.
+
+If you use DLP in academic work, see [CITATION.cff](CITATION.cff) for how to cite it.
