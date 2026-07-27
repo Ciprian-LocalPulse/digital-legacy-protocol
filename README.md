@@ -127,6 +127,18 @@ NotificationService(channel).send_attestation_request(
 )
 ```
 
+Or via SMS instead, for trustees who don't check email reliably:
+
+```python
+from dlp.notify import TwilioSMSChannel, NotificationService
+
+channel = TwilioSMSChannel(account_sid="ACxxxxx", auth_token="your-twilio-token",
+                            from_number="+15551230000")
+NotificationService(channel).send_attestation_request(
+    "+15559998888", "Ada's sister", owner_display_name="Ada"
+)
+```
+
 ```bash
 pip install -e ".[web]"
 dlp web   # serves a local UI at http://127.0.0.1:5000 — create/inspect/verify without touching Python
@@ -203,14 +215,14 @@ digital-legacy-protocol/
 │   ├── hint_crypto.py     X25519 + AES-256-GCM encryption for contact hints
 │   ├── recovery.py        opt-in Shamir backup of the owner's own signing key
 │   ├── storage.py         ManifestStore interface + a working local file backend
-│   ├── notify.py          real SMTP email delivery + the actual message content for each event
+│   ├── notify.py          real SMTP email + Twilio SMS delivery, plus the actual message content for each event
 │   ├── orchestrator.py    connects switch state transitions to actual notification delivery, idempotently
 │   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum) — now with persistence via storage.LocalSwitchStore
 │   ├── adapter.py         the DLPAdapter interface platforms implement to become DLP-aware
 │   ├── adapters/           real adapter implementations — GitHubAdapter (Gists + repo collaborators) and WebhookAdapter (signed HTTP POST to anywhere)
 │   ├── webapp/             minimal Flask UI — create/inspect/verify manifests AND run the switch lifecycle, without a terminal (optional extra)
 │   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-* / switch-init / switch-status / switch-checkin / switch-attest / web`
-├── tests/                 205 tests, 94% coverage package-wide (100% on crypto, switch, and the webhook adapter)
+├── tests/                 218 tests, 95% coverage package-wide (100% on crypto, switch, and the webhook adapter)
 └── examples/              sample manifests, a worked inheritance scenario, and a live GitHub adapter demo
 ```
 
@@ -231,9 +243,9 @@ digital-legacy-protocol/
 
 This is v0.4: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — persisted, runnable via both CLI and web UI, and automatically notifying the right people at the right state transitions via `dlp.orchestrator` — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and two real platform adapters (GitHub and a generic signed webhook, together covering three of the four spec actions). 205 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — persisted, runnable via both CLI and web UI, and automatically notifying the right people at the right state transitions via `dlp.orchestrator` — local storage, opt-in owner key recovery, real email and SMS delivery, a working local web UI, and two real platform adapters (GitHub and a generic signed webhook, together covering three of the four spec actions). 218 tests, 95% coverage, CI on every push.
 
-**Exists and works against real external systems, but adoption is still proof-of-concept:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. `dlp.adapters.webhook.WebhookAdapter` delivers signed HTTP POSTs for `execute_webhook` to any endpoint that can receive one. No bank, exchange, or password manager honors DLP manifests yet; these two adapters prove the `DLPAdapter` interface is genuinely implementable and generalizes across different kinds of platform, not yet evidence of real-world adoption. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
+**Exists and works against real external systems, but adoption is still proof-of-concept:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. `dlp.adapters.webhook.WebhookAdapter` delivers signed HTTP POSTs for `execute_webhook` to any endpoint that can receive one. No bank, exchange, or password manager honors DLP manifests yet; these two adapters prove the `DLPAdapter` interface is genuinely implementable and generalizes across different kinds of platform, not yet evidence of real-world adoption. `NotificationChannel` now ships two real channels (email and SMS via Twilio); push notifications would need their own implementation.
 
 **Doesn't exist at all yet:** a *hosted, multi-tenant* web UI — the reference UI generates private keys server-side, which is fine for local single-user use and explicitly not fine for a shared deployment (see spec section 14); an independent security audit (everything here has been tested by its own author, which is a different bar than "reviewed by someone with no stake in it being correct"); and any legal opinion on whether trustee-quorum attestation has standing anywhere as evidence of death or incapacity. That last one specifically isn't something code can settle — it needs an actual lawyer, in an actual jurisdiction.
 

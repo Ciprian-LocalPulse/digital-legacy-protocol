@@ -3,23 +3,34 @@ Trustee and owner notification (spec gap: check-in reminders and
 attestation requests are described in the spec and modeled correctly in
 dlp.switch, but nothing actually delivers them to a real person).
 
-This module defines a small NotificationChannel interface plus two
+This module defines a small NotificationChannel interface plus three
 implementations:
   - SMTPEmailChannel: sends real email via any standard SMTP server
     (Gmail, SES, Postmark, your own mail server — anything that speaks
     SMTP over TLS with username/password auth).
+  - TwilioSMSChannel: sends real SMS via Twilio's REST API. Chosen
+    because Twilio's HTTP API is simple enough to implement with nothing
+    but stdlib urllib (no SDK dependency) and is widely enough used that
+    several other providers (and Twilio-compatible gateways) speak a
+    near-identical API.
   - ConsoleChannel: prints to stdout instead of sending anything. Useful
     for local development, tests, and the CLI demo, where spinning up
-    real mail infrastructure would be overkill.
+    real mail or SMS infrastructure would be overkill.
 
-NotificationService wraps either channel with the actual message content
-DLP needs to send: check-in reminders to the owner, and attestation
-requests to trustees once verification starts.
+NotificationService wraps any channel with the actual message content
+DLP needs to send: check-in reminders to the owner, attestation requests
+to trustees once verification starts, activation notices to
+beneficiaries, and abort notices back to the owner.
 """
 
 from __future__ import annotations
 
+import base64
+import json
 import smtplib
+import urllib.error
+import urllib.parse
+import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from email.mime.text import MIMEText
@@ -71,6 +82,54 @@ class SMTPEmailChannel(NotificationChannel):
                 server.sendmail(self.from_address, [recipient], message.as_string())
         except (smtplib.SMTPException, OSError) as e:
             raise NotificationError(f"failed to send email to {recipient}: {e}") from e
+
+
+@dataclass
+class TwilioSMSChannel(NotificationChannel):
+    """Sends real SMS via Twilio's REST API
+    (https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json).
+    No SDK dependency — this is a handful of lines against a simple HTTP
+    API, using HTTP Basic Auth with your Account SID and Auth Token
+    exactly as Twilio's own docs describe.
+
+    SMS has no concept of a subject line, so `subject` is prefixed onto
+    the body rather than dropped, and the combined message is truncated
+    to stay under a conservative single-segment length — long DLP
+    notification bodies are not what SMS is for; use email for anything
+    that needs the full text."""
+
+    account_sid: str
+    auth_token: str
+    from_number: str
+    timeout_seconds: int = 15
+    max_length: int = 320  # roughly 2 GSM-7 segments; keeps messages affordable and readable
+
+    def send(self, recipient: str, subject: str, body: str) -> None:
+        full_text = f"{subject}\n{body}" if subject else body
+        if len(full_text) > self.max_length:
+            full_text = full_text[: self.max_length - 1].rstrip() + "…"
+
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{self.account_sid}/Messages.json"
+        form_data = urllib.parse.urlencode(
+            {"To": recipient, "From": self.from_number, "Body": full_text}
+        ).encode("utf-8")
+
+        credentials = base64.b64encode(f"{self.account_sid}:{self.auth_token}".encode()).decode()
+        req = urllib.request.Request(url, data=form_data, method="POST")
+        req.add_header("Authorization", f"Basic {credentials}")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                resp.read()  # drain the response; Twilio's success payload isn't needed here
+        except urllib.error.HTTPError as e:
+            try:
+                detail = json.loads(e.read()).get("message", str(e))
+            except (ValueError, AttributeError):
+                detail = str(e)
+            raise NotificationError(f"Twilio SMS to {recipient} failed ({e.code}): {detail}") from e
+        except urllib.error.URLError as e:
+            raise NotificationError(f"Twilio SMS to {recipient} unreachable: {e.reason}") from e
 
 
 @dataclass

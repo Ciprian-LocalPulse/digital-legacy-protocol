@@ -283,6 +283,9 @@ def test_switch_tick_console_sends_notification(tmp_path, capsys):
             smtp_user=None,
             smtp_password=None,
             smtp_from=None,
+            sms_account_sid=None,
+            sms_auth_token=None,
+            sms_from=None,
         )
     )
     out = capsys.readouterr().out
@@ -310,6 +313,9 @@ def test_switch_tick_idempotent(tmp_path, capsys):
         smtp_user=None,
         smtp_password=None,
         smtp_from=None,
+        sms_account_sid=None,
+        sms_auth_token=None,
+        sms_from=None,
     )
     cli.cmd_switch_tick(ns)
     capsys.readouterr()
@@ -340,5 +346,80 @@ def test_switch_tick_requires_smtp_credentials_together(tmp_path, capsys):
                 smtp_user=None,
                 smtp_password=None,
                 smtp_from=None,
+                sms_account_sid=None,
+                sms_auth_token=None,
+                sms_from=None,
             )
         )
+
+
+def test_switch_tick_requires_sms_credentials_together(tmp_path, capsys):
+    manifest_dir = tmp_path / "manifests"
+    switch_dir = tmp_path / "switches"
+    manifest_id = _write_manifest_with_addresses(manifest_dir)
+    cli.cmd_switch_init(
+        argparse.Namespace(
+            manifest_id=manifest_id, dir=str(manifest_dir), switch_dir=str(switch_dir), force=False
+        )
+    )
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit):
+        cli.cmd_switch_tick(
+            argparse.Namespace(
+                manifest_id=manifest_id,
+                dir=str(manifest_dir),
+                switch_dir=str(switch_dir),
+                smtp_host=None,
+                smtp_port=587,
+                smtp_user=None,
+                smtp_password=None,
+                smtp_from=None,
+                sms_account_sid="ACfake",
+                sms_auth_token=None,  # missing — should exit
+                sms_from=None,
+            )
+        )
+    assert "requires --sms-auth-token" in capsys.readouterr().err
+
+
+def test_switch_tick_uses_sms_channel_when_configured(tmp_path, capsys):
+    from unittest.mock import MagicMock, patch
+
+    manifest_dir = tmp_path / "manifests"
+    switch_dir = tmp_path / "switches"
+    manifest_id = _write_manifest_with_addresses(manifest_dir)
+    cli.cmd_switch_init(
+        argparse.Namespace(
+            manifest_id=manifest_id, dir=str(manifest_dir), switch_dir=str(switch_dir), force=False
+        )
+    )
+    capsys.readouterr()
+    _backdate_switch(switch_dir, manifest_id, days=95)
+
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        mock_resp = MagicMock()
+        mock_resp.__enter__.return_value = mock_resp
+        mock_resp.__exit__.return_value = False
+        mock_resp.read.return_value = b"{}"
+        mock_urlopen.return_value = mock_resp
+
+        cli.cmd_switch_tick(
+            argparse.Namespace(
+                manifest_id=manifest_id,
+                dir=str(manifest_dir),
+                switch_dir=str(switch_dir),
+                smtp_host=None,
+                smtp_port=587,
+                smtp_user=None,
+                smtp_password=None,
+                smtp_from=None,
+                sms_account_sid="ACfake",
+                sms_auth_token="tokfake",
+                sms_from="+15551230000",
+            )
+        )
+        req = mock_urlopen.call_args[0][0]
+        assert "api.twilio.com" in req.full_url
+    out = capsys.readouterr().out
+    assert "[sent] checkin_reminder" in out

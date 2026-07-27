@@ -300,6 +300,20 @@ def cmd_switch_tick(args: argparse.Namespace) -> None:
             password=args.smtp_password,
             from_address=args.smtp_from,
         )
+    elif args.sms_account_sid:
+        from .notify import TwilioSMSChannel
+
+        if not (args.sms_auth_token and args.sms_from):
+            print(
+                "--sms-account-sid requires --sms-auth-token and --sms-from",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        channel = TwilioSMSChannel(
+            account_sid=args.sms_account_sid,
+            auth_token=args.sms_auth_token,
+            from_number=args.sms_from,
+        )
     else:
         channel = ConsoleChannel()
 
@@ -400,12 +414,21 @@ def main() -> None:
     p_switch_tick.add_argument(
         "--smtp-host",
         default=None,
-        help="if set, sends real email via this SMTP server instead of printing to console",
+        help="if set, sends real email via this SMTP server instead of printing to console (takes precedence over --sms-account-sid if both are given)",
     )
     p_switch_tick.add_argument("--smtp-port", type=int, default=587)
     p_switch_tick.add_argument("--smtp-user", default=None)
     p_switch_tick.add_argument("--smtp-password", default=None)
     p_switch_tick.add_argument("--smtp-from", default=None)
+    p_switch_tick.add_argument(
+        "--sms-account-sid",
+        default=None,
+        help="if set (and --smtp-host is not), sends real SMS via Twilio instead of printing to console",
+    )
+    p_switch_tick.add_argument("--sms-auth-token", default=None)
+    p_switch_tick.add_argument(
+        "--sms-from", default=None, help="Twilio-verified sending number, e.g. +15551230000"
+    )
     p_switch_tick.set_defaults(func=cmd_switch_tick)
 
     p_web = sub.add_parser("web", help="launch the local web UI (requires the 'web' extra)")

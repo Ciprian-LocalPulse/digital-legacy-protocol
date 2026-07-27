@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.0] — 2026-07-27
+
+A second real notification channel — `NotificationChannel` had shipped with exactly one working implementation (email) since 0.3.0; this closes that gap for trustees who don't check email reliably but do carry a phone.
+
+### Added
+- `dlp.notify.TwilioSMSChannel` — sends real SMS via Twilio's REST API, stdlib `urllib` only (no Twilio SDK dependency, consistent with every other network-calling piece of this project). HTTP Basic Auth with Account SID + Auth Token, exactly as Twilio's own docs describe.
+  - Subject is prefixed onto the body rather than dropped (SMS has no subject line), and the combined message is truncated to a conservative length with a trailing ellipsis — long DLP notification text is not what SMS is for; email remains the channel for anything that needs the full text.
+  - Twilio's own error messages are surfaced through `NotificationError` rather than just the raw HTTP status, matching how `SMTPEmailChannel` and the platform adapters already report failures.
+- CLI: `dlp switch-tick` now accepts `--sms-account-sid` / `--sms-auth-token` / `--sms-from` as an alternative to `--smtp-*` (SMTP takes precedence if both are configured; console remains the default if neither is set).
+- 13 new tests (218 total, 2 skipped by design): request construction, Basic Auth header correctness, subject prefixing, truncation at the configured length, Twilio HTTP error unwrapping (including a fallback path when the error body isn't JSON), network-error handling, and the channel working correctly through `NotificationService`.
+
+### Notes
+- Consistent with `dlp switch-tick`'s existing SMTP behavior, and with the web UI's notification button remaining console-only by design (see 0.6.0's notes) — no browser form was added for SMS credentials either. A Twilio Auth Token has no more business being typed into a web form than an SMTP password does.
+
 ## [0.7.0] — 2026-07-27
 
 The second real `DLPAdapter` implementation, and the one that finally covers `execute_webhook` — the only spec action `GitHubAdapter` explicitly declined to implement, since GitHub's API has no natural mapping for "call an arbitrary URL."
