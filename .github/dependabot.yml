@@ -1,0 +1,73 @@
+version: 2
+
+updates:
+
+  # Python (pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "UTC"
+
+    open-pull-requests-limit: 10
+
+    labels:
+      - "dependencies"
+      - "security"
+
+    commit-message:
+      prefix: "deps"
+
+    reviewers:
+      - "Ciprian-LocalPulse"
+
+    groups:
+      python-security:
+        patterns:
+          - "*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:15"
+      timezone: "UTC"
+
+    open-pull-requests-limit: 5
+
+    labels:
+      - "github-actions"
+
+    commit-message:
+      prefix: "ci"
+
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Node.js (active doar dacă vei avea package.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:30"
+      timezone: "UTC"
+
+    open-pull-requests-limit: 5
+
+    labels:
+      - "frontend"
+
+    commit-message:
+      prefix: "npm"
+
+    groups:
+      npm:
+        patterns:
+          - "*"
