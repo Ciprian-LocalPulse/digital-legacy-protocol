@@ -239,3 +239,106 @@ def test_main_parses_switch_status_command(monkeypatch, tmp_path, capsys):
     cli.main()
     out = capsys.readouterr().out
     assert "State: active" in out
+
+
+def _write_manifest_with_addresses(store_dir, **kwargs):
+    from dlp.manifest import ManifestBuilder
+
+    owner_priv, owner_pub = crypto.generate_keypair()
+    builder = ManifestBuilder(
+        owner_public_key=owner_pub,
+        owner_display_name="Ada",
+        owner_notification_address=kwargs.get("owner_address", "ada@example.com"),
+    )
+    builder.with_checkin(interval_days=90, grace_days=30, method="signed_ping")
+    builder.add_trustee("t1", "ed25519:x", notification_address="elena@example.com")
+    builder.add_trustee("t2", "ed25519:y", notification_address="lawyer@example.com")
+    builder.set_quorum_threshold(2)
+    builder.add_beneficiary("b1", notification_address="marcus@example.com")
+    builder.add_asset("crypto_wallet", "wallet", "b1", "release_key", ["t1", "t2"])
+    manifest = builder.build_and_sign(owner_priv)
+    LocalFileStore(store_dir).save(manifest)
+    return manifest["manifest_id"]
+
+
+def test_switch_tick_console_sends_notification(tmp_path, capsys):
+    manifest_dir = tmp_path / "manifests"
+    switch_dir = tmp_path / "switches"
+    manifest_id = _write_manifest_with_addresses(manifest_dir)
+    cli.cmd_switch_init(
+        argparse.Namespace(
+            manifest_id=manifest_id, dir=str(manifest_dir), switch_dir=str(switch_dir), force=False
+        )
+    )
+    capsys.readouterr()
+    _backdate_switch(switch_dir, manifest_id, days=95)
+
+    cli.cmd_switch_tick(
+        argparse.Namespace(
+            manifest_id=manifest_id,
+            dir=str(manifest_dir),
+            switch_dir=str(switch_dir),
+            smtp_host=None,
+            smtp_port=587,
+            smtp_user=None,
+            smtp_password=None,
+            smtp_from=None,
+        )
+    )
+    out = capsys.readouterr().out
+    assert "[sent] checkin_reminder -> ada@example.com" in out
+
+
+def test_switch_tick_idempotent(tmp_path, capsys):
+    manifest_dir = tmp_path / "manifests"
+    switch_dir = tmp_path / "switches"
+    manifest_id = _write_manifest_with_addresses(manifest_dir)
+    cli.cmd_switch_init(
+        argparse.Namespace(
+            manifest_id=manifest_id, dir=str(manifest_dir), switch_dir=str(switch_dir), force=False
+        )
+    )
+    capsys.readouterr()
+    _backdate_switch(switch_dir, manifest_id, days=95)
+
+    ns = argparse.Namespace(
+        manifest_id=manifest_id,
+        dir=str(manifest_dir),
+        switch_dir=str(switch_dir),
+        smtp_host=None,
+        smtp_port=587,
+        smtp_user=None,
+        smtp_password=None,
+        smtp_from=None,
+    )
+    cli.cmd_switch_tick(ns)
+    capsys.readouterr()
+    cli.cmd_switch_tick(ns)
+    out = capsys.readouterr().out
+    assert "Nothing new to notify" in out
+
+
+def test_switch_tick_requires_smtp_credentials_together(tmp_path, capsys):
+    manifest_dir = tmp_path / "manifests"
+    switch_dir = tmp_path / "switches"
+    manifest_id = _write_manifest_with_addresses(manifest_dir)
+    cli.cmd_switch_init(
+        argparse.Namespace(
+            manifest_id=manifest_id, dir=str(manifest_dir), switch_dir=str(switch_dir), force=False
+        )
+    )
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit):
+        cli.cmd_switch_tick(
+            argparse.Namespace(
+                manifest_id=manifest_id,
+                dir=str(manifest_dir),
+                switch_dir=str(switch_dir),
+                smtp_host="smtp.example.com",
+                smtp_port=587,
+                smtp_user=None,
+                smtp_password=None,
+                smtp_from=None,
+            )
+        )

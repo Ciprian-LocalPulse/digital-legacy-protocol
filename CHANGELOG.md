@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] — 2026-07-26
+
+Connects two pieces that had existed side by side since 0.3.0/0.5.0 without anything linking them: `dlp.switch`'s state machine and `dlp.notify`'s message delivery. Before this, a trustee had no way to learn they needed to attest except being told out-of-band by someone manually running `dlp switch-attest` on their behalf.
+
+### Added
+- `dlp.orchestrator.SwitchMonitor` — the connector. `tick(manifest_id)` inspects current switch state, sends exactly the notifications appropriate for that state (owner check-in reminder on `overdue`, trustee attestation requests on `verification`, beneficiary activation notices on `activated`, an owner reassurance notice on `aborted`), and tracks `last_notified_state` on the switch itself so repeated calls — e.g. from a daily cron job — don't resend the same email every time.
+- `NotificationService.send_abort_notice()` — the one message type that didn't already have a dedicated method.
+- A new, deliberately separate `notification_address` field on owners, trustees, and beneficiaries (`ManifestBuilder.add_trustee()` / `add_beneficiary()` / the constructor for owners). This is **not** encrypted the way `contact_hint` is — automated delivery needs a plaintext destination to send to, and encrypting it the same way as the privacy-preserving hint would make automated delivery impossible without one party holding every trustee's decryption key, which contradicts the whole point of that encryption. Leave it unset if you'd rather deliver attestation requests manually.
+- CLI: `dlp switch-tick <manifest_id>` — prints to console by default; pass `--smtp-host` (with `--smtp-user`/`--smtp-password`/`--smtp-from`) to send real email instead. Safe to run repeatedly or from cron.
+- Web UI: manifest pages now have a "Send due notifications" button showing exactly what was (or wasn't) sent, and the create-manifest form collects optional email addresses for the owner, each trustee, and the beneficiary.
+- 23 new tests (190 total, 1 skipped by design): every state transition's notification content, idempotency across repeated ticks, graceful handling of missing addresses and channel failures (reported, never raised), and the full loop exercised through both the CLI and Flask's test client.
+
+### Notes
+- The web UI's notification button intentionally only prints to the server's own console (`ConsoleChannel`), never sends real email — wiring an SMTP password into a browser form is a worse idea than it sounds, and the button's help text says so. Real delivery from automation is a CLI/cron concern (`dlp switch-tick --smtp-host ...`), consistent with this UI's existing single-user/local-only scope (spec section 14).
+
 ## [0.5.0] — 2026-07-26
 
 Closes a gap that had persisted since 0.1.0 without anyone flagging it explicitly: `dlp.switch.DeadMansSwitch` was fully implemented and 100%-tested as a library, but had no persistence and no CLI or web exposure. Every check-in and attestation had to happen inside a single Python process — there was no way to actually *run* a switch across multiple real-world days.

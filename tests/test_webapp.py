@@ -287,3 +287,96 @@ def test_switch_attest_too_early_does_not_crash(client):
     # silently ignored per design — still redirects to a normal 200 page, still "active"
     assert r.status_code == 200
     assert "active" in r.get_data(as_text=True)
+
+
+def test_create_with_notification_addresses_stores_them(client, store_dir):
+    from dlp.storage import LocalFileStore
+
+    r = _create_manifest(
+        client,
+        owner_email="ada@example.com",
+        trustee_email=["elena@example.com", "lawyer@example.com", "friend@example.com"],
+        beneficiary_email="marcus@example.com",
+    )
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    manifest = LocalFileStore(store_dir).load(manifest_id)
+
+    assert manifest["owner"]["notification_address"] == "ada@example.com"
+    assert manifest["beneficiaries"][0]["notification_address"] == "marcus@example.com"
+    trustee_addresses = {t["notification_address"] for t in manifest["quorum"]["trustees"]}
+    assert trustee_addresses == {"elena@example.com", "lawyer@example.com", "friend@example.com"}
+
+
+def test_create_without_notification_addresses_leaves_them_none(client, store_dir):
+    from dlp.storage import LocalFileStore
+
+    r = _create_manifest(client)  # no email fields supplied at all
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    manifest = LocalFileStore(store_dir).load(manifest_id)
+
+    assert manifest["owner"]["notification_address"] is None
+    assert manifest["beneficiaries"][0]["notification_address"] is None
+    assert all(t["notification_address"] is None for t in manifest["quorum"]["trustees"])
+
+
+def test_switch_tick_reports_failed_without_addresses(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(client)  # no addresses
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)
+    switch_store.save(sw)
+
+    r = client.post(f"/manifest/{manifest_id}/switch/tick")
+    body = r.get_data(as_text=True)
+    assert "Notification results" in body
+    assert "FAILED" in body
+
+
+def test_switch_tick_sends_when_addresses_present(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(
+        client,
+        trustee_email=["elena@example.com", "lawyer@example.com", "friend@example.com"],
+    )
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)
+    switch_store.save(sw)
+
+    r = client.post(f"/manifest/{manifest_id}/switch/tick")
+    body = r.get_data(as_text=True)
+    assert "[sent] attestation_request" in body
+    assert "elena@example.com" in body
+
+
+def test_switch_tick_idempotent_via_web(client, store_dir):
+    import dlp.storage as st
+
+    r = _create_manifest(client, trustee_email=["a@example.com", "b@example.com", "c@example.com"])
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    client.post(f"/manifest/{manifest_id}/switch/init", follow_redirects=True)
+
+    switch_store = st.LocalSwitchStore(store_dir / "switches")
+    sw = switch_store.load(manifest_id)
+    sw.last_checkin = sw.last_checkin.replace(year=2020)
+    switch_store.save(sw)
+
+    client.post(f"/manifest/{manifest_id}/switch/tick")
+    r2 = client.post(f"/manifest/{manifest_id}/switch/tick")
+    assert "Nothing new to notify" in r2.get_data(as_text=True)
+
+
+def test_switch_tick_missing_switch_404s(client):
+    r = _create_manifest(client)
+    manifest_id = _extract_manifest_id(r.get_data(as_text=True))
+    r = client.post(f"/manifest/{manifest_id}/switch/tick")
+    assert r.status_code == 404

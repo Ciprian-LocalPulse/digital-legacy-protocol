@@ -51,9 +51,14 @@ class ManifestBuilder:
         owner_display_name: Optional[str] = None,
         manifest_id: Optional[str] = None,
         supersedes: Optional[str] = None,
+        owner_notification_address: Optional[str] = None,
     ):
         self._manifest_id = manifest_id or str(uuid.uuid4())
-        self._owner = {"public_key": owner_public_key, "display_name": owner_display_name}
+        self._owner = {
+            "public_key": owner_public_key,
+            "display_name": owner_display_name,
+            "notification_address": owner_notification_address,
+        }
         self._supersedes = supersedes
         self._checkin = {"interval_days": 90, "grace_days": 30, "method": "signed_ping"}
         self._trustees: List[Dict[str, Any]] = []
@@ -76,13 +81,25 @@ class ManifestBuilder:
         public_key: str,
         contact_hint: str = "",
         encryption_public_key: Optional[str] = None,
+        notification_address: Optional[str] = None,
     ) -> ManifestBuilder:
         """`public_key` is the trustee's Ed25519 signing key. If
         `encryption_public_key` (an X25519 key from
         dlp.hint_crypto.generate_encryption_keypair) is supplied,
         contact_hint is encrypted for that trustee before storage — only
         someone holding the matching private key can read it back. Without
-        it, the hint is stored in plaintext, matching the old behavior."""
+        it, the hint is stored in plaintext, matching the old behavior.
+
+        `notification_address` is a SEPARATE, deliberately unencrypted
+        field (e.g. an email address) used only by automated notification
+        delivery (dlp.orchestrator). It exists because a monitor sending
+        real attestation-request emails needs a plaintext destination to
+        send to — encrypting it the same way as contact_hint would make
+        automated delivery impossible, since no single party is supposed
+        to hold every trustee's decryption key. If you don't want a
+        trustee's contact info readable by whatever system runs your
+        monitor, leave this unset and deliver attestation requests
+        manually instead."""
         stored_hint = contact_hint
         if encryption_public_key and contact_hint:
             stored_hint = hint_crypto.encrypt_hint(contact_hint, encryption_public_key)
@@ -92,6 +109,7 @@ class ManifestBuilder:
                 "public_key": public_key,
                 "contact_hint": stored_hint,
                 "contact_hint_encrypted": bool(encryption_public_key and contact_hint),
+                "notification_address": notification_address,
             }
         )
         return self
@@ -106,6 +124,7 @@ class ManifestBuilder:
         public_key: Optional[str] = None,
         contact_hint: str = "",
         encryption_public_key: Optional[str] = None,
+        notification_address: Optional[str] = None,
     ) -> ManifestBuilder:
         stored_hint = contact_hint
         if encryption_public_key and contact_hint:
@@ -116,6 +135,7 @@ class ManifestBuilder:
                 "public_key": public_key,
                 "contact_hint": stored_hint,
                 "contact_hint_encrypted": bool(encryption_public_key and contact_hint),
+                "notification_address": notification_address,
             }
         )
         return self

@@ -1,4 +1,4 @@
-# Digital Legacy Protocol (DLP) — Specification v0.4
+# Digital Legacy Protocol (DLP) — Specification v0.5
 
 **Status:** Draft / Request for Comments
 **Author:** Stefano (Ciprian-LocalPulse) & contributors
@@ -162,6 +162,16 @@ The check-in and trustee-attestation flow described in section 7 is only useful 
 The reference implementation (`dlp.notify`) closes that gap with a small `NotificationChannel` interface and one working implementation, `SMTPEmailChannel`, which sends real email over standard SMTP with TLS and username/password auth — compatible with Gmail app passwords, Amazon SES, Postmark, or any self-hosted mail server. A `ConsoleChannel` implementation exists for local development and testing, where standing up real mail infrastructure would be unnecessary overhead.
 
 This is intentionally one channel, not a notification platform. A real deployment will likely want SMS, push notifications, or postal mail as a fallback for trustees who don't check email reliably — implement `NotificationChannel` for any of those the same way you'd implement `DLPAdapter` or `ManifestStore`.
+
+### 13.1 The `notification_address` field
+
+Owners, trustees, and beneficiaries may each carry an optional `notification_address` (e.g. an email address), distinct from `contact_hint`. This distinction is deliberate and worth stating explicitly: `contact_hint` exists to protect a trustee or beneficiary's identity from anyone who merely reads the manifest, and section 4.1 describes encrypting it so only the intended recipient can recover it. `notification_address` exists for the opposite purpose — it must be plaintext-readable by whatever system actually sends notifications on the owner's behalf, because that system needs a real destination to deliver to. Encrypting it the same way as `contact_hint` would make automated delivery impossible without one party holding every trustee's decryption key, which defeats the point of that encryption in the first place.
+
+Practically: an owner who is comfortable with their notification infrastructure (their own server, a cron job they control) knowing trustees' email addresses can populate this field and get automated delivery. An owner who isn't should leave it unset and deliver attestation requests manually — the protocol works either way; only the automation differs.
+
+### 13.2 Connecting state to delivery: the orchestrator
+
+`dlp.orchestrator.SwitchMonitor` is the reference implementation's answer to "who actually calls `NotificationService` when the switch changes state." Its `tick()` method is idempotent per state — calling it repeatedly (the expected usage from a cron job) sends each notification exactly once per state transition, tracked via a `last_notified_state` field persisted on the switch itself, not resent on every subsequent call until the state actually changes again.
 
 ## 14. Reference web UI
 

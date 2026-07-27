@@ -55,6 +55,13 @@ class DeadMansSwitch:
     last_checkin: datetime
     attestations: List[Attestation] = field(default_factory=list)
     _aborted_at: Optional[datetime] = None
+    last_notified_state: Optional[str] = None
+    """Tracks which SwitchState the orchestrator last sent a notification
+    for, so re-running a check (e.g. from a cron job) doesn't re-send the
+    same attestation-request email every time. Not read or written by the
+    state machine itself — dlp.orchestrator is the only user of this
+    field. Kept on the switch rather than as separate global state
+    because it's inherently tied to one switch's lifecycle."""
 
     def to_dict(self) -> dict:
         """Serializes full state, including the internal _aborted_at
@@ -69,6 +76,7 @@ class DeadMansSwitch:
             "last_checkin": self.last_checkin.isoformat(),
             "attestations": [a.to_dict() for a in self.attestations],
             "aborted_at": self._aborted_at.isoformat() if self._aborted_at else None,
+            "last_notified_state": self.last_notified_state,
         }
 
     @staticmethod
@@ -81,6 +89,7 @@ class DeadMansSwitch:
             last_checkin=datetime.fromisoformat(d["last_checkin"]),
             attestations=[Attestation.from_dict(a) for a in d.get("attestations", [])],
             _aborted_at=(datetime.fromisoformat(d["aborted_at"]) if d.get("aborted_at") else None),
+            last_notified_state=d.get("last_notified_state"),
         )
 
     @staticmethod

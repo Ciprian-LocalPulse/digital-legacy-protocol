@@ -158,6 +158,24 @@ dlp switch-attest <manifest_id> <trustee_id> --reachable   # any single one of t
 
 The same lifecycle is available from `dlp web` — every manifest page shows live switch status with buttons for check-in and attestation, no CLI required.
 
+Actually notifying trustees and beneficiaries as the switch changes state — run this from cron, or use `dlp switch-tick` from the command line:
+
+```python
+from dlp.storage import LocalFileStore, LocalSwitchStore
+from dlp.notify import SMTPEmailChannel, NotificationService
+from dlp.orchestrator import SwitchMonitor
+
+channel = SMTPEmailChannel(host="smtp.gmail.com", port=587,
+                            username="you@gmail.com", password="app-password",
+                            from_address="you@gmail.com")
+monitor = SwitchMonitor(LocalFileStore(".dlp_store"), LocalSwitchStore(".dlp_store/switches"),
+                         NotificationService(channel))
+
+attempts = monitor.tick(manifest_id)  # safe to call repeatedly — only sends once per state
+for a in attempts:
+    print(a.kind, "->", a.recipient, "OK" if a.success else a.detail)
+```
+
 ## What's in this repository
 
 ```
@@ -171,12 +189,13 @@ digital-legacy-protocol/
 │   ├── recovery.py        opt-in Shamir backup of the owner's own signing key
 │   ├── storage.py         ManifestStore interface + a working local file backend
 │   ├── notify.py          real SMTP email delivery + the actual message content for each event
+│   ├── orchestrator.py    connects switch state transitions to actual notification delivery, idempotently
 │   ├── switch.py          the dead man's switch state machine (check-ins, trustee attestation, quorum) — now with persistence via storage.LocalSwitchStore
 │   ├── adapter.py         the DLPAdapter interface platforms implement to become DLP-aware
 │   ├── adapters/           real adapter implementations — currently GitHubAdapter (Gists + repo collaborators)
 │   ├── webapp/             minimal Flask UI — create/inspect/verify manifests AND run the switch lifecycle, without a terminal (optional extra)
 │   └── cli.py             `dlp keygen / enckeygen / demo / verify / inspect / store-* / switch-init / switch-status / switch-checkin / switch-attest / web`
-├── tests/                 167 tests, 94% coverage package-wide (100% on crypto and switch)
+├── tests/                 190 tests, 94% coverage package-wide (100% on crypto and switch)
 └── examples/              sample manifests, a worked inheritance scenario, and a live GitHub adapter demo
 ```
 
@@ -197,7 +216,7 @@ digital-legacy-protocol/
 
 This is v0.4: a spec plus a reference implementation, not a finished product. Being direct about where the line sits:
 
-**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — now persisted and runnable via both CLI and web UI, not just a library exercised in isolation — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 167 tests, 94% coverage, CI on every push.
+**Solid and tested:** the core cryptography (Shamir's Secret Sharing, Ed25519 signing, X25519 hint encryption), manifest validation, the dead man's switch state machine — persisted, runnable via both CLI and web UI, and now automatically notifying the right people at the right state transitions via `dlp.orchestrator` — local storage, opt-in owner key recovery, real SMTP email delivery, a working local web UI, and one real platform adapter. 190 tests, 94% coverage, CI on every push.
 
 **Exists and works against a real external API, but only for one service:** `dlp.adapters.github.GitHubAdapter` actually calls `api.github.com` — creates private Gists for `deliver_message`, adds repo collaborators for `grant_access`. No bank, exchange, or password manager honors DLP manifests yet; GitHub is a proof that the `DLPAdapter` interface is genuinely implementable, not yet evidence of real-world adoption. `NotificationChannel` currently ships one real channel (email); SMS or push would need their own implementation.
 

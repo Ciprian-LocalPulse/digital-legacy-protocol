@@ -21,14 +21,20 @@
   <label>Owner display name</label>
   <input type="text" name="owner_name" required placeholder="e.g. Ada">
 
-  <label>Trustees (one name per line — each gets their own keypair)</label>
-  <textarea id="trustee_textarea" rows="4" placeholder="Elena (sister)&#10;Estate lawyer&#10;College roommate"></textarea>
+  <label>Owner email (optional — needed only for automated check-in reminders and abort notices)</label>
+  <input type="email" name="owner_email" placeholder="ada@example.com">
+
+  <label>Trustees — one per line, as "Name, email" (email is optional but required for automated attestation requests)</label>
+  <textarea id="trustee_textarea" rows="4" placeholder="Elena, elena@example.com&#10;Estate lawyer&#10;College roommate, friend@example.com"></textarea>
 
   <label>Quorum threshold</label>
   <input type="number" name="threshold" min="2" value="2" required>
 
   <label>Beneficiary name</label>
   <input type="text" name="beneficiary_name" required placeholder="e.g. Marcus">
+
+  <label>Beneficiary email (optional — needed only for automated activation notices)</label>
+  <input type="email" name="beneficiary_email" placeholder="marcus@example.com">
 
   <label>Asset type</label>
   <select name="asset_type">
@@ -54,19 +60,29 @@
 </form>
 
 <script>
-  // Textarea -> multiple hidden trustee_name fields, one per non-empty line,
-  // so the form posts request.form.getlist("trustee_name") correctly. The
-  // textarea itself is never submitted (it has no name attribute).
+  // Textarea -> multiple hidden trustee_name / trustee_email fields, one
+  // pair per non-empty line, parsed as "Name, email" (email optional).
+  // The textarea itself is never submitted (it has no name attribute).
   const form = document.querySelector("form");
   form.addEventListener("submit", (e) => {
     const textarea = document.getElementById("trustee_textarea");
     const lines = textarea.value.split("\n").map(s => s.trim()).filter(Boolean);
     for (const line of lines) {
-      const hidden = document.createElement("input");
-      hidden.type = "hidden";
-      hidden.name = "trustee_name";
-      hidden.value = line;
-      form.appendChild(hidden);
+      const commaIdx = line.indexOf(",");
+      const name = commaIdx === -1 ? line : line.slice(0, commaIdx).trim();
+      const email = commaIdx === -1 ? "" : line.slice(commaIdx + 1).trim();
+
+      const nameField = document.createElement("input");
+      nameField.type = "hidden";
+      nameField.name = "trustee_name";
+      nameField.value = name;
+      form.appendChild(nameField);
+
+      const emailField = document.createElement("input");
+      emailField.type = "hidden";
+      emailField.name = "trustee_email";
+      emailField.value = email;
+      form.appendChild(emailField);
     }
   });
 </script>

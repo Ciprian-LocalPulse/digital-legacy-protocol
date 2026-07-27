@@ -49,6 +49,30 @@
       <button type="submit">Check in now (owner)</button>
     </form>
 
+    <form method="post" action="{{ url_for('switch_tick', manifest_id=manifest.manifest_id) }}" style="margin-top:0.5rem;">
+      <button type="submit">Send due notifications</button>
+    </form>
+    <p class="muted" style="margin-top:0.25rem;">
+      Prints to the server console in this reference UI (see the warning on the create-manifest page for why).
+      For real email delivery, use <code>dlp switch-tick --smtp-host ...</code> instead.
+    </p>
+
+    {% if tick_results is not none %}
+      <div class="panel" style="margin-top:1rem; background:#0d100c;">
+        <strong>Notification results:</strong>
+        {% if not tick_results %}
+          <p class="muted">Nothing new to notify — state hasn't changed since the last check.</p>
+        {% else %}
+          {% for r in tick_results %}
+            <p class="{{ 'ok' if r.success else 'bad' }}">
+              [{{ "sent" if r.success else "FAILED" }}] {{ r.kind }} &rarr; {{ r.recipient }}
+              {% if r.detail %}({{ r.detail }}){% endif %}
+            </p>
+          {% endfor %}
+        {% endif %}
+      </div>
+    {% endif %}
+
     {% if switch_state in ('verification', 'activated') %}
     <form method="post" action="{{ url_for('switch_attest', manifest_id=manifest.manifest_id) }}" style="margin-top:1rem;">
       <label>Trustee attestation</label>

@@ -154,3 +154,17 @@ class NotificationService:
             f"— Digital Legacy Protocol"
         )
         self._channel.send(beneficiary_email, subject, body)
+
+    def send_abort_notice(self, owner_email: str, owner_name: str) -> None:
+        subject = "Digital Legacy Protocol: activation was aborted"
+        body = (
+            f"Hello {owner_name},\n\n"
+            f"Your Digital Legacy Protocol switch entered verification "
+            f"(you missed a check-in), but a trustee has confirmed you're "
+            f"fine, so activation was aborted automatically.\n\n"
+            f"If this is unexpected, please check in as soon as you can — "
+            f"and consider whether your check-in interval is realistic "
+            f"for how you actually use this.\n\n"
+            f"— Digital Legacy Protocol"
+        )
+        self._channel.send(owner_email, subject, body)

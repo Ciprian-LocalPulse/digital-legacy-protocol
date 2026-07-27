@@ -13,6 +13,7 @@ Command-line interface for DLP.
     dlp switch-status <manifest_id> [--dir PATH]
     dlp switch-checkin <manifest_id> [--dir PATH]
     dlp switch-attest <manifest_id> <trustee_id> (--unreachable | --reachable) [--dir PATH]
+    dlp switch-tick <manifest_id> [--dir PATH]   # sends any due notifications (run from cron)
     dlp web [--dir PATH] [--host HOST] [--port PORT]   # requires the 'web' extra
 """
 
@@ -31,6 +32,8 @@ from .manifest import (
     is_signature_valid,
     validate_manifest,
 )
+from .notify import ConsoleChannel, NotificationService
+from .orchestrator import SwitchMonitor
 from .storage import (
     LocalFileStore,
     LocalSwitchStore,
@@ -277,6 +280,41 @@ def cmd_switch_attest(args: argparse.Namespace) -> None:
     print(f"Attestation recorded for trustee {args.trustee_id}. State: {sw.state().value}")
 
 
+def cmd_switch_tick(args: argparse.Namespace) -> None:
+    manifest_store = LocalFileStore(args.dir)
+    switch_store = LocalSwitchStore(args.switch_dir)
+
+    if args.smtp_host:
+        from .notify import SMTPEmailChannel
+
+        if not (args.smtp_user and args.smtp_password and args.smtp_from):
+            print(
+                "--smtp-host requires --smtp-user, --smtp-password, and --smtp-from",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        channel = SMTPEmailChannel(
+            host=args.smtp_host,
+            port=args.smtp_port,
+            username=args.smtp_user,
+            password=args.smtp_password,
+            from_address=args.smtp_from,
+        )
+    else:
+        channel = ConsoleChannel()
+
+    monitor = SwitchMonitor(manifest_store, switch_store, NotificationService(channel))
+    attempts = monitor.tick(args.manifest_id)
+
+    if not attempts:
+        print(f"Nothing new to notify for {args.manifest_id}.")
+        return
+    for a in attempts:
+        status = "sent" if a.success else "FAILED"
+        detail = f" ({a.detail})" if a.detail else ""
+        print(f"[{status}] {a.kind} -> {a.recipient}{detail}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="dlp", description="Digital Legacy Protocol CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -349,6 +387,26 @@ def main() -> None:
     )
     p_switch_attest.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
     p_switch_attest.set_defaults(func=cmd_switch_attest)
+
+    p_switch_tick = sub.add_parser(
+        "switch-tick",
+        help="send any notifications due for a manifest's current switch state (safe to run repeatedly, e.g. from cron)",
+    )
+    p_switch_tick.add_argument("manifest_id")
+    p_switch_tick.add_argument(
+        "--dir", default=_DEFAULT_STORE_DIR, help="manifest storage directory"
+    )
+    p_switch_tick.add_argument("--switch-dir", default=_DEFAULT_SWITCH_DIR, dest="switch_dir")
+    p_switch_tick.add_argument(
+        "--smtp-host",
+        default=None,
+        help="if set, sends real email via this SMTP server instead of printing to console",
+    )
+    p_switch_tick.add_argument("--smtp-port", type=int, default=587)
+    p_switch_tick.add_argument("--smtp-user", default=None)
+    p_switch_tick.add_argument("--smtp-password", default=None)
+    p_switch_tick.add_argument("--smtp-from", default=None)
+    p_switch_tick.set_defaults(func=cmd_switch_tick)
 
     p_web = sub.add_parser("web", help="launch the local web UI (requires the 'web' extra)")
     p_web.add_argument("--dir", default=_DEFAULT_STORE_DIR, help="manifest storage directory")
