@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.0] — 2026-07-27
+
+The second real `DLPAdapter` implementation, and the one that finally covers `execute_webhook` — the only spec action `GitHubAdapter` explicitly declined to implement, since GitHub's API has no natural mapping for "call an arbitrary URL."
+
+### Added
+- `dlp.adapters.webhook.WebhookAdapter` — delivers `execute_webhook` activations as a signed HTTP POST to any endpoint that can receive one: Zapier, a Discord/Slack incoming webhook, a self-hosted script, anything. Stdlib `urllib` only, no new dependency.
+  - HMAC-SHA256 request signing (`X-DLP-Signature` header, same convention as GitHub/Stripe webhooks) when a `signing_secret` is configured, so receivers can verify authenticity. `verify_webhook_signature()` is provided for the receiving side.
+  - Refuses to send secret material over plain `http://` by default — `allow_insecure_http=True` is required to opt out, intended only for local development against `http://localhost`.
+  - Reports unsupported actions, malformed URLs, non-2xx responses, and unreachable endpoints all as clear `ActionResult` failures rather than raising or silently doing nothing.
+- `examples/webhook_adapter_demo.py` — unlike the GitHub demo, this one needs no external account or token: it stands up a real local HTTP server to receive its own webhook, so the entire signed-delivery flow is visible end to end with nothing but `python examples/webhook_adapter_demo.py`.
+- 16 new tests (205 total, 2 skipped by design) — and unlike every other adapter test in this repo, these run against a **real local HTTP server** (`http.server` in a background thread) rather than mocking `urllib`. The adapter's actual network code executes exactly as it would against a real third-party endpoint; only the destination is localhost. `dlp/adapters/webhook.py` reached 100% test coverage this way.
+
+### Notes
+- Two working adapters now exist, targeting genuinely different kinds of platform (a specific third-party API vs. an arbitrary webhook receiver), which is a better test of whether `DLPAdapter` generalizes than a single adapter could be on its own.
+
 ## [0.6.0] — 2026-07-26
 
 Connects two pieces that had existed side by side since 0.3.0/0.5.0 without anything linking them: `dlp.switch`'s state machine and `dlp.notify`'s message delivery. Before this, a trustee had no way to learn they needed to attest except being told out-of-band by someone manually running `dlp switch-attest` on their behalf.

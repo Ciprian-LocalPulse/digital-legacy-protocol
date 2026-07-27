@@ -11,5 +11,6 @@ being part of the protocol's core dependency surface.
 """
 
 from .github import GitHubAdapter
+from .webhook import WebhookAdapter, sign_payload, verify_webhook_signature
 
-__all__ = ["GitHubAdapter"]
+__all__ = ["GitHubAdapter", "WebhookAdapter", "sign_payload", "verify_webhook_signature"]

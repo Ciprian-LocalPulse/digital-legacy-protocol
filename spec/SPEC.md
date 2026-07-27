@@ -179,15 +179,23 @@ The reference implementation ships a minimal, server-rendered web interface (`dl
 
 This UI generates and displays private keys server-side, in the same process serving the page. That is an acceptable tradeoff for a local tool running on hardware the user controls, and an **unacceptable** one for a hosted, multi-tenant service — a server operator in that scenario would see every private key it generates on a user's behalf, which defeats a fair amount of the point of DLP existing at all. Anyone deploying this UI for multiple people over a network should move key generation and signing into the browser (e.g. via WebCrypto) or a separate trusted device, rather than assuming this reference implementation's approach scales to that setting unchanged.
 
-## 15. A worked Platform Adapter: GitHub
+## 15. Worked Platform Adapters
 
-Section 8 describes the `DLPAdapter` interface in the abstract. `dlp.adapters.github.GitHubAdapter` is a genuine, working implementation of it against a real external API, included specifically to prove the interface is implementable and not just a plausible-looking abstraction.
+Section 8 describes the `DLPAdapter` interface in the abstract. Two reference implementations exist against real external systems, included specifically to prove the interface is implementable and not just a plausible-looking abstraction — and, with two adapters targeting genuinely different kinds of platform, to test whether it generalizes rather than having been shaped around a single example.
 
-It maps two of the four standard actions onto real GitHub behavior:
+### 15.1 GitHub
+
+`dlp.adapters.github.GitHubAdapter` maps two of the four standard actions onto real GitHub behavior:
 
 - **`deliver_message`** creates a private Gist containing the reconstructed message, returning its URL — appropriate for a manifest asset that is really a final letter, a set of instructions, or a small document rather than a credential.
 - **`grant_access`** adds the beneficiary as a collaborator on a private repository, using an `owner/repo:username` convention in the asset's `reference` field.
 
-It deliberately does **not** attempt `release_key` or `execute_webhook` — GitHub's API has no natural mapping for either, and the adapter says so explicitly rather than pretending otherwise. This is the intended shape for future adapters generally: implement what a given platform can actually do well, and report unsupported actions clearly rather than partially faking them.
+It deliberately does **not** attempt `release_key` or `execute_webhook` — GitHub's API has no natural mapping for either, and the adapter says so explicitly rather than pretending otherwise.
+
+### 15.2 Generic webhook
+
+`dlp.adapters.webhook.WebhookAdapter` implements the one action GitHub's adapter declines: `execute_webhook`. It delivers a signed HTTP POST (HMAC-SHA256, in the same `X-Signature` header convention used by GitHub and Stripe webhooks) to any URL capable of receiving one — Zapier, a chat platform's incoming webhook, a self-hosted script. It refuses plaintext `http://` delivery by default, since the payload contains reconstructed secret material and sending that unencrypted would undo a meaningful part of what the rest of the protocol protects.
+
+Together, these two adapters establish the intended shape for others: implement what a given platform can actually do well, report unsupported actions clearly rather than partially faking them, and never send secret material somewhere insecure just because a caller asked.
 
 Contributions and critique welcome — see `CONTRIBUTING.md`.
