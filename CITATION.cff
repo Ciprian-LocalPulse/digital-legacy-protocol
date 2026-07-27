@@ -1,0 +1,70 @@
+cff-version: 1.2.0
+message: >-
+  If you use the Digital Legacy Protocol specification, reference
+  implementation, or accompanying whitepaper in academic work, please
+  cite both the software and the whitepaper as indicated below.
+title: "Digital Legacy Protocol: A Quorum-Based Framework for Verifiable Digital Inheritance"
+type: software
+authors:
+  - given-names: Ciprian Ștefan
+    family-names: Pleșca
+    alias: Stefano
+    affiliation: Independent Researcher
+repository-code: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol"
+url: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol"
+abstract: >-
+  An open specification and reference implementation for verifiable
+  digital inheritance, addressing the absence of a consistent standard
+  for the disposition of digital assets after death or incapacitation.
+  The protocol verifies incapacitation via a trustee quorum rather than
+  unilateral platform determination, splits protected secrets via
+  Shamir's Secret Sharing such that no single party can access them
+  alone, and defines a minimal, platform-agnostic core that any
+  custodial service can adopt without seeking permission or paying a
+  fee.
+keywords:
+  - digital-legacy
+  - dead-mans-switch
+  - shamir-secret-sharing
+  - threshold-cryptography
+  - estate-planning
+  - cryptocurrency-inheritance
+  - ed25519
+  - quorum-based-verification
+license: MIT
+license-url: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol/blob/main/LICENSE"
+version: 0.6.0
+date-released: "2026-07-26"
+preferred-citation:
+  type: article
+  title: "The Digital Legacy Protocol: A Quorum-Based Framework for Verifiable Digital Inheritance"
+  authors:
+    - given-names: Ciprian Ștefan
+      family-names: Pleșca
+      alias: Stefano
+      affiliation: Independent Researcher
+  year: 2026
+  month: 7
+  url: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol/blob/main/WHITEPAPER.md"
+  repository-code: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol"
+  notes: >-
+    Companion paper to Protocol Specification v0.5, distributed as
+    WHITEPAPER.md within the repository rather than through a
+    traditional venue. Released under CC0 1.0, matching the
+    specification it describes.
+references:
+  - type: generic
+    title: "How to Share a Secret"
+    authors:
+      - family-names: Shamir
+        given-names: Adi
+    year: 1979
+    journal: "Communications of the ACM"
+    volume: 22
+    issue: 11
+    start: 612
+    end: 613
+identifiers:
+  - type: url
+    value: "https://github.com/Ciprian-LocalPulse/digital-legacy-protocol/blob/main/spec/SPEC.md"
+    description: "Normative protocol specification (CC0 1.0), versioned separately from the reference implementation."
