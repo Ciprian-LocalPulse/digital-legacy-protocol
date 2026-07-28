@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.1] — 2026-07-28
+
+### Fixed
+- **`dlp.shamir.split_secret`: zero-coefficient security bug.** The random coefficients for each byte's polynomial were drawn with a plain `os.urandom(1)[0]`, including the highest-degree one. That coefficient can legitimately be `0` (probability 1/256 per byte). When it is, the polynomial's *actual* degree is lower than `threshold - 1` — for `threshold=2` specifically, a zero slope makes the polynomial constant, so every share for that byte equals the raw secret byte, and a single below-threshold share reveals it outright. This directly undermines the protocol's core claim that fewer than `threshold` shares "reveal nothing at all" (see `WHITEPAPER.md`).
+  - Caught by `tests/test_shamir_properties.py::test_shares_are_pairwise_distinct` in CI, reported by Hypothesis as a rare (not flaky) counterexample.
+  - Fix: the highest-degree coefficient is now resampled until non-zero, guaranteeing the polynomial's real degree always equals `threshold - 1` exactly, matching the security threshold that was requested.
+  - This is the same class of subtlety as the 0.2.0 index-tracking defect: hand-rolled field/polynomial code where a boundary case silently degrades a guarantee instead of raising an error. No change to the public API or share format — existing shares from before this fix remain valid and interoperable.
+
 ## [0.9.0] — 2026-07-27
 
 Not a new feature — a hardening pass on the cryptography that's been the foundation of everything else since 0.1.0. This doesn't and can't substitute for independent audit (see the new section in `SECURITY.md`), but it's a real increase in how thoroughly the hand-rolled parts of this codebase have been exercised.

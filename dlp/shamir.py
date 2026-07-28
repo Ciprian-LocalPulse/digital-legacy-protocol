@@ -119,7 +119,19 @@ def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[
     share_bytes: List[bytearray] = [bytearray() for _ in xs]
 
     for secret_byte in secret:
-        coeffs = [secret_byte] + [os.urandom(1)[0] for _ in range(threshold - 1)]
+        random_coeffs = [os.urandom(1)[0] for _ in range(threshold - 1)]
+        # The highest-degree coefficient must be non-zero, or the
+        # polynomial silently collapses to a lower degree than
+        # `threshold - 1`. os.urandom(1)[0] is 0 with probability
+        # 1/256 — rare, but when it happens the security guarantee
+        # ("fewer than `threshold` shares reveal nothing") breaks: a
+        # degree-0 polynomial (threshold=2 with a zero slope) means
+        # even a single share equals the secret outright. Resample
+        # until the top coefficient is non-zero so the polynomial's
+        # actual degree always matches `threshold - 1`.
+        while random_coeffs[-1] == 0:
+            random_coeffs[-1] = os.urandom(1)[0]
+        coeffs = [secret_byte] + random_coeffs
         for i, x in enumerate(xs):
             share_bytes[i].append(_eval_poly(coeffs, x))
 
