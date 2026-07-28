@@ -116,16 +116,36 @@ def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[
         raise ValueError("secret must not be empty")
 
     xs = list(range(1, n + 1))
-    share_bytes: List[bytearray] = [bytearray() for _ in xs]
+    
+    # Buclă de siguranță: se repetă doar dacă (prin absurd) apar share-uri duplicate
+    while True:
+        share_bytes: List[bytearray] = [bytearray() for _ in xs]
 
-    for secret_byte in secret:
-        coeffs = [secret_byte] + [os.urandom(1)[0] for _ in range(threshold - 1)]
-        for i, x in enumerate(xs):
-            share_bytes[i].append(_eval_poly(coeffs, x))
+        for secret_byte in secret:
+            random_coeffs = []
+            for i in range(threshold - 1):
+                while True:
+                    r = os.urandom(1)[0]
+                    # Coeficientul de grad maxim (ultimul din listă) NU are voie să fie 0.
+                    # Pentru threshold=2, acesta este singurul coeficient aleatoriu.
+                    if i == (threshold - 2) and r == 0:
+                        continue
+                    random_coeffs.append(r)
+                    break
+                    
+            coeffs = [secret_byte] + random_coeffs
+            
+            for i, x in enumerate(xs):
+                share_bytes[i].append(_eval_poly(coeffs, x))
 
-    return [
-        Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i])) for i in range(n)
-    ]
+        shares = [
+            Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i])) for i in range(n)
+        ]
+        
+        # Validare: asigură proprietatea matematică de distincție între perechi
+        datas = [s.data for s in shares]
+        if len(datas) == len(set(datas)):
+            return shares
 
 
 def reconstruct_secret(shares: List[Share]) -> bytes:
