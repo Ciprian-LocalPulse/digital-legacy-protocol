@@ -96,8 +96,10 @@ class Share:
         }
 
     @staticmethod
-    def from_dict(d: dict) -> Share:
-        return Share(index=d["index"], trustee_id=d["trustee_id"], data=bytes.fromhex(d["data"]))
+    def from_dict(d: dict) -> "Share":
+        return Share(
+            index=d["index"], trustee_id=d["trustee_id"], data=bytes.fromhex(d["data"])
+        )
 
 
 def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[Share]:
@@ -116,7 +118,7 @@ def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[
         raise ValueError("secret must not be empty")
 
     xs = list(range(1, n + 1))
-    
+
     # Buclă de siguranță: se repetă doar dacă (prin absurd) apar share-uri duplicate
     while True:
         share_bytes: List[bytearray] = [bytearray() for _ in xs]
@@ -132,16 +134,17 @@ def split_secret(secret: bytes, threshold: int, trustee_ids: List[str]) -> List[
                         continue
                     random_coeffs.append(r)
                     break
-                    
+
             coeffs = [secret_byte] + random_coeffs
-            
+
             for i, x in enumerate(xs):
                 share_bytes[i].append(_eval_poly(coeffs, x))
 
         shares = [
-            Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i])) for i in range(n)
+            Share(index=xs[i], trustee_id=trustee_ids[i], data=bytes(share_bytes[i]))
+            for i in range(n)
         ]
-        
+
         # Validare: asigură proprietatea matematică de distincție între perechi
         datas = [s.data for s in shares]
         if len(datas) == len(set(datas)):
