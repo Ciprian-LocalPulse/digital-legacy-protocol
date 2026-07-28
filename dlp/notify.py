@@ -120,7 +120,8 @@ class TwilioSMSChannel(NotificationChannel):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+            # url is hardcoded to https://api.twilio.com/..., never derived from manifest or user data
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:  # nosec B310
                 resp.read()  # drain the response; Twilio's success payload isn't needed here
         except urllib.error.HTTPError as e:
             try:

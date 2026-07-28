@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] — 2026-07-27
+
+Not a new feature — a hardening pass on the cryptography that's been the foundation of everything else since 0.1.0. This doesn't and can't substitute for independent audit (see the new section in `SECURITY.md`), but it's a real increase in how thoroughly the hand-rolled parts of this codebase have been exercised.
+
+### Added
+- **Property-based testing** via Hypothesis, targeting the three modules where this project implements cryptography itself rather than calling a vetted library:
+  - `tests/test_shamir_properties.py` — GF(256) field axioms (commutativity, associativity, distributivity over XOR), and the two properties that actually matter for security: every threshold-sized subset of shares reconstructs correctly, and every below-threshold subset does not (checked combinatorially, not just for one example ordering).
+  - `tests/test_crypto_properties.py` — sign/verify holding for randomly-shaped manifest-like dictionaries, tampering always invalidating a signature regardless of which field changes, and canonical JSON serialization being insensitive to key order.
+  - `tests/test_hint_crypto_properties.py` — encrypt/decrypt round-tripping for arbitrary Unicode text, wrong-key decryption always failing closed, single-bit tampering always being caught by AES-GCM's authentication tag, and semantic security (identical plaintext never producing identical ciphertext twice).
+  - In the course of writing these, Hypothesis found two flawed assumptions in the tests themselves — not bugs in `dlp/` — both documented inline: one property assumed `reconstruct_secret()` always returns a value when it correctly raises for a single share, and another asserted a "must not reconstruct" property too strongly for 1-byte secrets, where a below-threshold reconstruction has a genuine ~1/256 chance of coincidentally landing on the same byte. Both are now correctly scoped.
+- **Bandit static security analysis**, wired into CI as a hard gate (unlike `mypy`, which remains informative-only for now). Three initial findings — all `urllib.request.urlopen` calls, which Bandit flags generically for their theoretical ability to open unexpected URL schemes — were triaged: `WebhookAdapter` already validated its URL scheme before this pass and gained an explanatory `# nosec`; `GitHubAdapter` gained an explicit scheme check for defense in depth even though its URL is developer-configured, not manifest-derived; `TwilioSMSChannel`'s URL is fully hardcoded and was annotated accordingly.
+- A new "Property-based security tests" CI job, kept separate from the main test matrix so a Hypothesis-found counterexample in the cryptography is impossible to miss in the Actions summary.
+- A new `SECURITY.md` section stating plainly what has and hasn't been verified, and how — including naming independent audit as something this pass explicitly does not substitute for.
+
+### Notes
+- 21 new tests (239 total, 2 skipped by design), each running Hypothesis's default of 100–500 generated examples rather than counting as "1 test" in the usual sense — the actual number of concrete cases exercised per CI run is in the tens of thousands.
+
 ## [0.8.0] — 2026-07-27
 
 A second real notification channel — `NotificationChannel` had shipped with exactly one working implementation (email) since 0.3.0; this closes that gap for trustees who don't check email reliably but do carry a phone.

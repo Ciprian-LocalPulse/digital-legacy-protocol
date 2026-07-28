@@ -116,8 +116,10 @@ class WebhookAdapter(DLPAdapter):
         if self.signing_secret:
             req.add_header("X-DLP-Signature", sign_payload(body, self.signing_secret))
 
+        # scheme validated above: rejects everything but http/https, and
+        # http itself unless allow_insecure_http was explicitly set
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:  # nosec B310
                 status = resp.status
         except urllib.error.HTTPError as e:
             return ActionResult(success=False, detail=f"webhook returned HTTP {e.code}: {e.reason}")

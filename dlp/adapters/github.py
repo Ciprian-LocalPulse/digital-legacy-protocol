@@ -56,6 +56,14 @@ class GitHubAdapter(DLPAdapter):
 
     def _request(self, method: str, path: str, body: Optional[dict] = None) -> Dict[str, Any]:
         url = f"{self.api_base}{path}"
+        if not url.startswith(("https://", "http://")):
+            # api_base is developer-configured, not derived from manifest
+            # data, so this is defense in depth rather than a response to
+            # a realistic attack path — but it's a one-line guard against
+            # urllib.request.urlopen's willingness to open file:// and
+            # other unexpected schemes (bandit B310), so there's no reason
+            # not to have it.
+            raise GitHubAdapterError(f"refusing to request non-http(s) URL: {url!r}")
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(url, data=data, method=method)
         req.add_header("Authorization", f"Bearer {self.personal_access_token}")
@@ -66,7 +74,8 @@ class GitHubAdapter(DLPAdapter):
             req.add_header("Content-Type", "application/json")
 
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:
+            # scheme validated above (raises before reaching here otherwise)
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:  # nosec B310
                 raw = resp.read()
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as e:

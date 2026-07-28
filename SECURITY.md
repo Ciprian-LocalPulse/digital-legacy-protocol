@@ -10,6 +10,20 @@ DLP's security depends on three things holding at once:
 
 If you find a way to break any of these three properties in the reference implementation — forge a signature without the private key, reconstruct a secret from fewer than the threshold number of shares, or activate a switch without genuine quorum agreement — that's a critical issue.
 
+## What's actually been done to verify this, and what hasn't
+
+Being specific about the difference between "tested" and "audited" matters here.
+
+**Done:**
+- **Fixed example tests** for every module, including deliberately adversarial cases (tampered signatures, wrong keys, insufficient shares, path traversal, malformed input).
+- **Property-based testing** (`tests/test_*_properties.py`, via [Hypothesis](https://hypothesis.readthedocs.io/)) generating hundreds of randomized inputs per run against the hand-rolled cryptography specifically — `dlp.shamir`'s GF(256) arithmetic and Lagrange interpolation, `dlp.crypto`'s sign/verify contract, `dlp.hint_crypto`'s encrypt/decrypt round-trip. This exists because `dlp.shamir` is implemented from scratch rather than calling a vetted library, which is exactly the kind of code where a subtle arithmetic mistake is easy to miss by eye. In the course of writing these tests, Hypothesis surfaced two flawed assumptions in the *tests themselves* (not the underlying code) — both documented in `tests/test_shamir_properties.py` and `tests/test_hint_crypto_properties.py` — which is a reasonable illustration of why this kind of testing is worth having even when it doesn't find a bug in the code under test.
+- **Static security analysis** ([Bandit](https://bandit.readthedocs.io/)) runs as a hard CI gate on every push. Every current finding has been triaged and either fixed (e.g. explicit URL scheme allowlisting before any `urlopen` call) or justified inline with a `# nosec` comment explaining why it's safe in context — a new, unjustified finding blocks the build.
+
+**Not done:**
+- **Independent security audit.** Everything above was written and tested by this project's own author. That is a meaningfully different and weaker guarantee than review by a party with no stake in the outcome, and it should be weighted accordingly by anyone deciding whether to rely on this for something real.
+- **Formal verification** of the cryptographic protocol design itself (as opposed to testing this particular implementation of it).
+- **Fuzzing at the binary/memory-safety level** — moot for pure Python, but worth naming as a category of testing this project doesn't need rather than silently skipping.
+
 ## Reporting a vulnerability
 
 Please **do not open a public GitHub issue** for security vulnerabilities. Instead:

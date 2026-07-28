@@ -56,6 +56,38 @@ jobs:
         run: mypy dlp/ --ignore-missing-imports
         continue-on-error: true  # informative for now, not yet a hard gate
 
+      - name: Bandit (security static analysis)
+        run: bandit -r dlp/
+        # unlike mypy, this IS a hard gate: every current finding has been
+        # triaged and either fixed or justified with an explicit #nosec
+        # comment naming why it's safe (see dlp/adapters/github.py,
+        # dlp/adapters/webhook.py, dlp/notify.py) — a NEW finding here
+        # means new code introduced a real issue or a new unjustified
+        # urlopen call, either of which should block the build
+
+  security-properties:
+    name: Property-based security tests (Shamir, signing, hint encryption)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run property-based tests
+        run: pytest tests/test_shamir_properties.py tests/test_crypto_properties.py tests/test_hint_crypto_properties.py -v
+        # kept as a separate job (rather than folded into the main test
+        # matrix) so a Hypothesis-found counterexample in the
+        # hand-rolled cryptography is impossible to miss in the Actions
+        # summary, and so this job's runtime doesn't slow down the
+        # per-Python-version test matrix above
+
   spec-consistency:
     name: Spec file exists and is non-trivial
     runs-on: ubuntu-latest
