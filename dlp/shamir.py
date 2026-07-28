@@ -95,8 +95,8 @@ class Share:
             "data": self.data.hex(),
         }
 
-    @staticmethod
-    def from_dict(d: dict) -> "Share":
+   @staticmethod
+    def from_dict(d: dict) -> Share:
         return Share(
             index=d["index"], trustee_id=d["trustee_id"], data=bytes.fromhex(d["data"])
         )
